@@ -43,10 +43,9 @@ public:
 
 	torch::Tensor value (const torch::Tensor &x) const;
 	torch::Tensor grad (const torch::Tensor &x) const;
+	double gammaDistance (double distance) const;
 
-	bool isReady () const {
-		return flags.isReady ();
-	}
+	bool isReady () const;
 
 	void setMeasures (const torch::Tensor &newMeasures);
 };
@@ -54,7 +53,7 @@ public:
 template<class T>
 torch::Tensor montecarlo (torch::Tensor (T::*f)(const torch::Tensor &) const, const T *obj, int dim, int count, const torch::Tensor &center, double variance) {
 	torch::Tensor xEval = torch::rand ({count, dim}) * variance + center.expand ({count, dim});
-	//std::cout << (obj->*f) (xEval).mean(0) << std::endl;
+
 	return (obj->*f) (xEval).mean (0);
 }
 

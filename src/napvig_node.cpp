@@ -47,11 +47,15 @@ void NapvigNode::initParams ()
 	napvigParams.gradientStepSize = paramDouble (params["napvig"], "gradient_step_size");
 	napvigParams.terminationDistance = paramDouble (params["napvig"], "termination_distance");
 	napvigParams.terminationCount = paramInt (params["napvig"], "termination_count");
+	napvigParams.lookaheadHorizon = paramInt  (params["napvig"], "lookahead_horizon");
+	napvigParams.algorithm = paramEnum<NapvigAlgorithmType> (params["napvig"], "algorithm", {"single_step", "predict_collision"});
+	napvigParams.minDistance = paramDouble (params["napvig"],"min_distance");
+	napvigParams.scatterVariance = paramDouble (params["napvig"], "scatter_variance");
 
 	nodeParams.mapTestRangeMin = paramDouble (params["map_test"], "range_min");
 	nodeParams.mapTestRangeMax = paramDouble (params["map_test"], "range_max");
 	nodeParams.mapTestRangeStep = paramDouble (params["map_test"], "range_step");
-	nodeParams.drawWhat = (TestDraw) paramInt(params["map_test"],"draw");
+	nodeParams.drawWhat = paramEnum<TestDraw> (params["map_test"],"draw", {"none","value","grad"});
 
 	napvig = new Napvig (mapParams, napvigParams);
 }
@@ -165,14 +169,16 @@ void NapvigNode::publishControl ()
 
 	publish ("setpoint_pub", poseMsg);// temp  debug
 
+#ifdef GRAD_DEBUG
 	std_msgs::Float64MultiArray gradMsg;
 	gradMsg.layout.dim.resize (2);
-	gradMsg.layout.dim[0].size = napvig->state.gradLog.size(0);
-	gradMsg.layout.dim[1].size = napvig->state.gradLog.size(1);
-	gradMsg.data.resize (napvig->state.gradLog.numel ());
-	const double *dataPt = (double *) napvig->state.gradLog.toType (ScalarType::Double).data_ptr ();
-	gradMsg.data = vector<double> (dataPt, dataPt + napvig->state.gradLog.numel ());
+	gradMsg.layout.dim[0].size = napvig->gradLog.size(0);
+	gradMsg.layout.dim[1].size = napvig->gradLog.size(1);
+	gradMsg.data.resize (napvig->gradLog.numel ());
+	const double *dataPt = (double *) napvig->gradLog.toType (ScalarType::Double).data_ptr ();
+	gradMsg.data = vector<double> (dataPt, dataPt + napvig->gradLog.numel ());
 	publish ("grad_log_pub", gradMsg);
+#endif
 }
 
 int NapvigNode::actions ()

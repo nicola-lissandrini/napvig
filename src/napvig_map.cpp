@@ -149,7 +149,16 @@ Tensor NapvigMap::grad (const Tensor &x) const {
 	else
 		return montecarlo (&NapvigMap::preSmoothGrad, this, dim, params.precision, x.view({1,dim}), params.smoothRadius);
 }
+
+double NapvigMap::gammaDistance (double distance) const {
+		return exp (-pow(distance,2)/(2 * pow(params.measureRadius,2)));
+}
+
 #endif
+
+bool NapvigMap::isReady() const {
+	return flags.isReady ();
+}
 
 #if 0
 void NapvigMap::setMeasures (const Tensor &newMeasures)
