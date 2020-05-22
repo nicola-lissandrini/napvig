@@ -46,9 +46,7 @@ class Napvig
 	const torch::Tensor initialSearch = torch::tensor ({1.0, 0.0}, torch::kDouble);
 
 public:
-#ifdef GRAD_DEBUG
 	torch::Tensor gradLog;
-#endif
 	struct State {
 		torch::Tensor position;
 		torch::Tensor search;
@@ -57,14 +55,8 @@ public:
 	complexd frame, oldFrame;
 
 private:
-#ifdef GRAD_DEBUG
 	std::pair<torch::Tensor, torch::Tensor> valleySearch (const torch::Tensor &xStep, const torch::Tensor &rSearch, int &num) const;
 	std::pair<State, torch::Tensor> nextSample (const State &q) const;
-#else
-	torch::Tensor valleySearch (const torch::Tensor &xStep, const torch::Tensor &rSearch, int &num) const;
-	State nextSample (const State &q) const;
-	State step (State &q) const;
-#endif
 	torch::Tensor stepAhead (const State &q) const;
 	torch::Tensor getBaseOrthogonal (const torch::Tensor &base) const;
 	torch::Tensor projectOnto (const torch::Tensor &space, const at::Tensor &vector) const;
@@ -80,7 +72,7 @@ public:
 			const NapvigParams &napvigParams);
 
 	State stepSingle ();
-	State stepDiscovery ();
+	std::pair<State, SearchHistory> stepDiscovery();
 	void step ();
 
 	void setMeasures (const torch::Tensor &measures);

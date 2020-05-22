@@ -20,11 +20,7 @@ Napvig::Napvig (const NapvigMapParams &mapParams, const NapvigParams &napvigPara
 	flags.addFlag ("frame_updated");
 }
 
-#ifdef GRAD_DEBUG
 pair<Napvig::State, Tensor> Napvig::nextSample (const State &q) const
-#else
-Napvig::State Napvig::nextSample (const State &q) const
-#endif
 {
 	Tensor xStep;
 	State next;
@@ -35,31 +31,19 @@ Napvig::State Napvig::nextSample (const State &q) const
 	xStep = stepAhead (q);
 
 	// Get valley
-#ifdef GRAD_DEBUG
 	Tensor gradLog;
 	tie (next.position, gradLog) = valleySearch (xStep, q.search, num);
-#else
-	next.position = valleySearch (xStep, q.search, num);
-#endif
 
 	// Get next bearing
 	next.search = computeBearing (q.position, next.position);
 
-#ifdef GRAD_DEBUG
 	return {next, gradLog};
-#else
-	return next;
-#endif
 }
 
 Tensor Napvig::projectOnto (const Tensor &space, const Tensor &vector) const {
 	return space.mm (space.t ()).mm (vector.unsqueeze (1)).squeeze ();
 }
-#ifdef GRAD_DEBUG
 pair<Tensor, Tensor> Napvig::valleySearch(const Tensor &xStep, const Tensor &rSearch, int &num) const
-#else
-Tensor Napvig::valleySearch (const Tensor &xStep, const Tensor &rSearch, int &num) const
-#endif
 {
 	// Get basis orthonormal to direction
 	Tensor searchSpace = getBaseOrthogonal (rSearch);
@@ -68,9 +52,7 @@ Tensor Napvig::valleySearch (const Tensor &xStep, const Tensor &rSearch, int &nu
 	bool terminationCondition = false;
 	Tensor xCurr = xStep;
 	Tensor gradProject;
-#ifdef GRAD_DEBUG
 	Tensor gradLog;
-#endif
 	int iterCount;
 
 	//cout << "Start" << endl;
@@ -83,7 +65,6 @@ Tensor Napvig::valleySearch (const Tensor &xStep, const Tensor &rSearch, int &nu
 		// Update rule
 		Tensor xNext = xCurr + params.gradientStepSize * gradProject;
 
-#ifdef GRAD_DEBUG
 		Tensor debugVal =  torch::stack ({map.value (xCurr),gradProject.norm ()}).unsqueeze (0);
 
 		// For debug
@@ -91,7 +72,6 @@ Tensor Napvig::valleySearch (const Tensor &xStep, const Tensor &rSearch, int &nu
 			gradLog = debugVal;
 		else
 			gradLog = torch::cat ({gradLog,debugVal},0);
-#endif
 		double updateDistance = (xNext - xCurr).norm ().item ().toDouble ();
 
 		xCurr = xNext;
@@ -100,11 +80,7 @@ Tensor Napvig::valleySearch (const Tensor &xStep, const Tensor &rSearch, int &nu
 	}
 
 	num = iterCount;
-#ifdef GRAD_DEBUG
 	return {xCurr, gradLog};
-#else
-	return xCurr;
-#endif
 }
 
 Tensor Napvig::stepAhead (const State &q) const {
@@ -130,13 +106,9 @@ bool Napvig::collides (const Tensor &x) const {
 
 Napvig::State Napvig::stepSingle()
 {
-#ifdef GRAD_DEBUG
 	Tensor step, gradLog;
 	tie (step, gradLog) = nextSample (state);
 	return step;
-#else
-	return nextSample (state);
-#endif
 }
 
 complex<double> vec2complex (const Tensor &tensor) {
@@ -166,30 +138,22 @@ Napvig::State Napvig::randomize (const State &state) const
 tuple<Napvig::State, bool, Tensor> Napvig::predictCollision (const State &initialState, int maxCount) const
 {
 	Napvig::State first, curr;
-	Tensor history;
+	Tensor path;
 	int stepCount = 0;
 	bool collision;
 
 	// Compute first step...
-#ifdef GRAD_DEBUG
 	tie (first, ignore) = nextSample (initialState);
-#else
-	first = nextSample (initialState);
-#endif
 
 	curr = first;
 	collision = collides (first.position);
-	history = first.position.unsqueeze (0);
+	path = first.position.unsqueeze (0);
 
 	// ...and check if it would lead to collision in 'maxCount' steps
 	while (!collision && stepCount < maxCount) {
-#ifdef GRAD_DEBUG
 		tie (curr, ignore) = nextSample (curr);
-#else
-		curr = nextSample (curr);
-#endif
 		collision = collides (curr.position);
-		history = torch::cat ({history, curr.position.unsqueeze (0)},1);
+		path = torch::cat ({path, curr.position.unsqueeze (0)},1);
 
 		if (collision)
 			cout << "Collision in prediction at sample " << stepCount << endl;
@@ -198,17 +162,19 @@ tuple<Napvig::State, bool, Tensor> Napvig::predictCollision (const State &initia
 	}
 
 	// if not, return first step
-	return {first, collision, history};
+	return {first, collision, path};
 }
 
-Napvig::State Napvig::stepDiscovery()
+pair<Napvig::State, SearchHistory> Napvig::stepDiscovery()
 {
 	// Perform first deterministic step
 	State step;
+	SearchHistory searchHistory;
+	Tensor currPath;
 	bool collision;
 
 	tie (step, collision) = predictCollision (state, params.lookaheadHorizon);
-	
+
 	// If no collision take the first step of the predicted path
 	if (!collision) {
 		return step;
@@ -280,9 +246,7 @@ void Napvig::resetState ()
 	state.search = complex2vec (oldFrame / frame * vec2complex (state.search));
 	//cout << "New " << state.search << endl;
 
-#ifdef GRAD_DEBUG
 	gradLog = torch::empty (0, torch::kDouble);
-#endif
 }
 
 void Napvig::updateFrame (complexd newFrame)
