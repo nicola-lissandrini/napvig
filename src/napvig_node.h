@@ -7,6 +7,7 @@
 #include <ATen/Tensor.h>
 
 #include <sensor_msgs/LaserScan.h>
+#include <nav_msgs/Odometry.h>
 
 #define NODE_NAME "napvig"
 
@@ -45,6 +46,7 @@ class NapvigNode : public SparcsNode
 	void publishControl ();
 
 	void measuresCallback(const sensor_msgs::LaserScan &scanMsg);
+	void odomCallback (const nav_msgs::Odometry &odomMsg);
 
 public:
 	NapvigNode ();

@@ -80,7 +80,7 @@ public:
 			const NapvigParams &napvigParams);
 
 	State stepSingle ();
-	State stepDiscovery ();
+	std::pair<State, SearchHistory> stepDiscovery();
 	void step ();
 
 	void setMeasures (const torch::Tensor &measures);

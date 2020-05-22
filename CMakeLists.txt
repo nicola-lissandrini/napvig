@@ -12,7 +12,15 @@ find_package(Torch REQUIRED)
 find_package(catkin REQUIRED COMPONENTS
   roscpp
   rospy
+  message_generation std_msgs geometry_msgs nav_msgs
 )
+
+add_message_files (
+	FILES
+	SearchHistory.msg
+)
+
+generate_messages (DEPENDENCIES std_msgs geometry_msgs nav_msgs)
 
 catkin_package(
   INCLUDE_DIRS include ${TORCH_INCLUDE_DIRS}

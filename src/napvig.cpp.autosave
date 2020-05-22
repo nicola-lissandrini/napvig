@@ -166,7 +166,7 @@ Napvig::State Napvig::randomize (const State &state) const
 tuple<Napvig::State, bool, Tensor> Napvig::predictCollision (const State &initialState, int maxCount) const
 {
 	Napvig::State first, curr;
-	Tensor history;
+	Tensor path;
 	int stepCount = 0;
 	bool collision;
 
@@ -179,7 +179,7 @@ tuple<Napvig::State, bool, Tensor> Napvig::predictCollision (const State &initia
 
 	curr = first;
 	collision = collides (first.position);
-	history = first.position.unsqueeze (0);
+	path = first.position.unsqueeze (0);
 
 	// ...and check if it would lead to collision in 'maxCount' steps
 	while (!collision && stepCount < maxCount) {
@@ -189,7 +189,7 @@ tuple<Napvig::State, bool, Tensor> Napvig::predictCollision (const State &initia
 		curr = nextSample (curr);
 #endif
 		collision = collides (curr.position);
-		history = torch::cat ({history, curr.position.unsqueeze (0)},1);
+		path = torch::cat ({path, curr.position.unsqueeze (0)},1);
 
 		if (collision)
 			cout << "Collision in prediction at sample " << stepCount << endl;
@@ -198,13 +198,15 @@ tuple<Napvig::State, bool, Tensor> Napvig::predictCollision (const State &initia
 	}
 
 	// if not, return first step
-	return {first, collision, history};
+	return {first, collision, path};
 }
 
-Napvig::State Napvig::stepDiscovery()
+pair<Napvig::State, SearchHistory> Napvig::stepDiscovery()
 {
 	// Perform first deterministic step
 	State step;
+	SearchHistory searchHistory;
+	Tensor currPath;
 	bool collision;
 
 	tie (step, collision) = predictCollision (state, params.lookaheadHorizon);

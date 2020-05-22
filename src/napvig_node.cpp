@@ -2,6 +2,7 @@
 
 #include <std_msgs/Float64MultiArray.h>
 #include <geometry_msgs/Pose2D.h>
+#include <nav_msgs/Path.h>
 
 using namespace ros;
 using namespace std;
@@ -62,10 +63,12 @@ void NapvigNode::initParams ()
 
 void NapvigNode::initROS () {
 	addSub ("measures_sub", paramString (params,"scan_topic"), 1, &NapvigNode::measuresCallback);
+	addSub ("odom_sub", paramString (params, "odom_topic"), 1, &NapvigNode::odomCallback);
 	addPub<std_msgs::Float64MultiArray> ("measures_pub", paramString(params,"measures_pub_topic"),1);
 	addPub<std_msgs::Float64MultiArray> ("map_values_pub", paramString(params,"map_values_pub_topic"),1);
 	addPub<geometry_msgs::Pose2D> ("setpoint_pub", paramString(params,"setpoint_pub_topic"), 1);
 	addPub<std_msgs::Float64MultiArray> ("grad_log_pub","/grad_log", 1);
+	addPub<nav_msgs::Path> ("search_history_pub", paramString (params,"search_history_pub"), 1);
 }
 
 Tensor polar2rectangularMeasure (double radius, double angle) {
@@ -138,7 +141,6 @@ void NapvigNode::publishValues ()
 	}
 
 	publish ("map_values_pub", mapValuesMsg);
-
 }
 
 void NapvigNode::measuresCallback (const sensor_msgs::LaserScan &scanMsg)
@@ -149,15 +151,28 @@ void NapvigNode::measuresCallback (const sensor_msgs::LaserScan &scanMsg)
 	publishMeasures (newMeasures);
 }
 
+void NapvigNode::odomCallback (const nav_msgs::Odometry &odomMsg)
+{
+	complexd newFrame;
+	const double realPart = odomMsg.pose.pose.orientation.w;
+	const double imagPart = odomMsg.pose.pose.orientation.z;
+
+	newFrame = pow (realPart + 1i * imagPart, 2);	// Squared since the quaternion holds half angle
+
+	napvig->updateFrame (newFrame);
+}
+
 void NapvigNode::publishControl ()
 {
-	if (!napvig->isMapReady ())
+	if (!napvig->isReady ())
 		return;
 
 	geometry_msgs::Pose2D poseMsg;
 	torch::Tensor nextStep, nextBearing;
+
 	napvig->resetState ();
 	napvig->step ();
+
 	nextStep = napvig->getPosition ();
 	nextBearing = napvig->getBearing ();
 
