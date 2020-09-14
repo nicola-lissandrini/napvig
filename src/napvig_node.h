@@ -11,6 +11,8 @@
 
 #define NODE_NAME "napvig"
 
+torch::Tensor quaternionMsgToTorch (const geometry_msgs::Quaternion &quaternionMsg);
+
 enum TestDraw {
 	TEST_DRAW_NONE = 0,
 	TEST_DRAW_VALUE,
@@ -44,6 +46,7 @@ class NapvigNode : public SparcsNode
 	void publishMeasures(const torch::Tensor &measures);
 	void publishValues ();
 	void publishControl ();
+	void publishHistory();
 
 	void measuresCallback(const sensor_msgs::LaserScan &scanMsg);
 	void odomCallback (const nav_msgs::Odometry &odomMsg);

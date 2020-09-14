@@ -2,29 +2,22 @@
 
 #include <ATen/Tensor.h>
 #include <ATen/TensorOperators.h>
-#include <torch/autograd.h>
 #include <ATen/Layout.h>
 
 using namespace torch;
 using namespace torch::indexing;
 using namespace std;
 
-Napvig::Napvig (const NapvigMapParams &mapParams, const NapvigParams &napvigParams):
+Napvig::Napvig (const NapvigMap::Params &mapParams, const Napvig::Params &napvigParams):
 	map(mapParams),
 	params(napvigParams),
-	state{initialPosition, initialSearch},
-	frame(1,0),
-	oldFrame(1,0)
+	state{initialPosition, initialSearch}
 {
 	flags.addFlag ("new_measures");
 	flags.addFlag ("frame_updated");
 }
 
-#ifdef GRAD_DEBUG
-pair<Napvig::State, Tensor> Napvig::nextSample (const State &q) const
-#else
 Napvig::State Napvig::nextSample (const State &q) const
-#endif
 {
 	Tensor xStep;
 	State next;
@@ -35,31 +28,19 @@ Napvig::State Napvig::nextSample (const State &q) const
 	xStep = stepAhead (q);
 
 	// Get valley
-#ifdef GRAD_DEBUG
-	Tensor gradLog;
-	tie (next.position, gradLog) = valleySearch (xStep, q.search, num);
-#else
 	next.position = valleySearch (xStep, q.search, num);
-#endif
 
 	// Get next bearing
 	next.search = computeBearing (q.position, next.position);
 
-#ifdef GRAD_DEBUG
-	return {next, gradLog};
-#else
 	return next;
-#endif
 }
 
 Tensor Napvig::projectOnto (const Tensor &space, const Tensor &vector) const {
 	return space.mm (space.t ()).mm (vector.unsqueeze (1)).squeeze ();
 }
-#ifdef GRAD_DEBUG
-pair<Tensor, Tensor> Napvig::valleySearch(const Tensor &xStep, const Tensor &rSearch, int &num) const
-#else
+
 Tensor Napvig::valleySearch (const Tensor &xStep, const Tensor &rSearch, int &num) const
-#endif
 {
 	// Get basis orthonormal to direction
 	Tensor searchSpace = getBaseOrthogonal (rSearch);
@@ -68,9 +49,6 @@ Tensor Napvig::valleySearch (const Tensor &xStep, const Tensor &rSearch, int &nu
 	bool terminationCondition = false;
 	Tensor xCurr = xStep;
 	Tensor gradProject;
-#ifdef GRAD_DEBUG
-	Tensor gradLog;
-#endif
 	int iterCount;
 
 	//cout << "Start" << endl;
@@ -83,15 +61,6 @@ Tensor Napvig::valleySearch (const Tensor &xStep, const Tensor &rSearch, int &nu
 		// Update rule
 		Tensor xNext = xCurr + params.gradientStepSize * gradProject;
 
-#ifdef GRAD_DEBUG
-		Tensor debugVal =  torch::stack ({map.value (xCurr),gradProject.norm ()}).unsqueeze (0);
-
-		// For debug
-		if (iterCount == 0)
-			gradLog = debugVal;
-		else
-			gradLog = torch::cat ({gradLog,debugVal},0);
-#endif
 		double updateDistance = (xNext - xCurr).norm ().item ().toDouble ();
 
 		xCurr = xNext;
@@ -100,11 +69,7 @@ Tensor Napvig::valleySearch (const Tensor &xStep, const Tensor &rSearch, int &nu
 	}
 
 	num = iterCount;
-#ifdef GRAD_DEBUG
-	return {xCurr, gradLog};
-#else
 	return xCurr;
-#endif
 }
 
 Tensor Napvig::stepAhead (const State &q) const {
@@ -130,20 +95,15 @@ bool Napvig::collides (const Tensor &x) const {
 
 Napvig::State Napvig::stepSingle()
 {
-#ifdef GRAD_DEBUG
-	Tensor step, gradLog;
-	tie (step, gradLog) = nextSample (state);
-	return step;
-#else
 	return nextSample (state);
-#endif
 }
 
-complex<double> vec2complex (const Tensor &tensor) {
+#ifdef COMPLEX
+complexd vec2complex (const Tensor &tensor) {
 	return tensor[0].item().toDouble () + 1i * tensor[1].item().toDouble ();
 }
 
-Tensor complex2vec (complex<double> val) {
+Tensor complex2vec (complexd val) {
 	Tensor ret = torch::empty ({2}, kDouble);
 	ret[0] = real(val);
 	ret[1] = imag(val);
@@ -155,9 +115,23 @@ Napvig::State Napvig::randomize (const State &state) const
 {
 	State randomized;
 	double thetaRandom = torch::normal (0.0, params.scatterVariance, {1}).item().toDouble ();
-	complex<double> searchComplex = vec2complex (state.search);
+	complexd searchComplex = vec2complex (state.search);
 
-	randomized.search = complex2vec (polar(1.0,thetaRandom) * searchComplex);
+	randomized.search = complex2vec (std::polar(1.0,thetaRandom) * searchComplex);
+	randomized.position = state.position;
+
+	return randomized;
+}
+#endif
+
+Napvig::State Napvig::randomize (const State &state) const
+{
+	State randomized;
+	double thetaRandom = torch::normal (0.0, params.scatterVariance, {1}).item().toDouble ();
+	// Only works with 2D
+	Rotation randomizedRotation = Rotation::fromAxisAngle (Rotation::axis2d (), tensor ({thetaRandom},kDouble));
+
+	randomized.search = randomizedRotation * state.search;
 	randomized.position = state.position;
 
 	return randomized;
@@ -171,11 +145,7 @@ tuple<Napvig::State, bool, Tensor> Napvig::predictCollision (const State &initia
 	bool collision;
 
 	// Compute first step...
-#ifdef GRAD_DEBUG
-	tie (first, ignore) = nextSample (initialState);
-#else
 	first = nextSample (initialState);
-#endif
 
 	curr = first;
 	collision = collides (first.position);
@@ -183,13 +153,9 @@ tuple<Napvig::State, bool, Tensor> Napvig::predictCollision (const State &initia
 
 	// ...and check if it would lead to collision in 'maxCount' steps
 	while (!collision && stepCount < maxCount) {
-#ifdef GRAD_DEBUG
-		tie (curr, ignore) = nextSample (curr);
-#else
 		curr = nextSample (curr);
-#endif
 		collision = collides (curr.position);
-		history = torch::cat ({history, curr.position.unsqueeze (0)},1);
+		history = torch::cat ({history, curr.position.unsqueeze (0)},0);
 
 		if (collision)
 			cout << "Collision in prediction at sample " << stepCount << endl;
@@ -201,18 +167,22 @@ tuple<Napvig::State, bool, Tensor> Napvig::predictCollision (const State &initia
 	return {first, collision, history};
 }
 
-Napvig::State Napvig::stepDiscovery()
+pair<Napvig::State, Napvig::SearchHistory> Napvig::stepDiscovery()
 {
 	// Perform first deterministic step
 	State step;
+	SearchHistory history;
+	Tensor currHistory;
+
 	bool collision;
 
-	tie (step, collision) = predictCollision (state, params.lookaheadHorizon);
+	tie (step, collision, currHistory) = predictCollision (state, params.lookaheadHorizon);
+	history.triedPaths.push_back (currHistory);
+	history.initialSearches.push_back (state.search);
 	
 	// If no collision take the first step of the predicted path
-	if (!collision) {
-		return step;
-	}
+	if (!collision)
+		return {step, history};
 
 	State randomized = state;
 	int trialNeeded = 1;
@@ -220,25 +190,31 @@ Napvig::State Napvig::stepDiscovery()
 	// Otherwise take a random direction and predict again
 	while (collision) {
 		randomized = randomize (randomized);
-		cout << "Trying another direction" << endl;
-		tie (step, collision) = predictCollision (randomized, params.lookaheadHorizon);
+
+		tie (step, collision, currHistory) = predictCollision (randomized, params.lookaheadHorizon);
+		history.triedPaths.push_back (currHistory);
+		history.initialSearches.push_back (randomized.search);
 		trialNeeded++;
 	}
 
-	cout << "Found a way. Took " << trialNeeded << " random trials.";
-
 	// Take the last step
-	return step;
+	return {step, history};
 }
 
 void Napvig::step ()
 {
+	// Wait until both measures and frame are updated
+	if (!flags["new_measures"] || !flags["frame_updated"])
+		return;
+
+	resetState ();
+
 	switch (params.algorithm) {
-	case NAPVIG_SINGLE_STEP:
+	case SINGLE_STEP:
 		state = stepSingle ();
 		break;
-	case NAPVIG_PREDICT_COLLISION:
-		state = stepDiscovery ();
+	case PREDICT_COLLISION:
+		tie (state, lastHistory) = stepDiscovery ();
 		break;
 	}
 	flags.setProcessed ();
@@ -246,8 +222,6 @@ void Napvig::step ()
 
 void Napvig::setMeasures (const Tensor &measures)
 {
-	resetState ();
-
 	map.setMeasures (measures);
 
 	flags.set("new_measures");
@@ -269,23 +243,18 @@ Tensor Napvig::getBearing() const {
 	return state.search;
 }
 
+Napvig::SearchHistory Napvig::getSearchHistory() const {
+	return lastHistory;
+}
+
 void Napvig::resetState ()
 {
 	oldState = state;
 	state.position = initialPosition;
-
-	// Keep last search direction in the new frame got from odometry
-	//cout << "Old " << state.search << endl;
-	cout << "Diff "  << imag (log (oldFrame / frame)) << endl;
-	state.search = complex2vec (oldFrame / frame * vec2complex (state.search));
-	//cout << "New " << state.search << endl;
-
-#ifdef GRAD_DEBUG
-	gradLog = torch::empty (0, torch::kDouble);
-#endif
+	state.search = initialSearch;
 }
 
-void Napvig::updateFrame (complexd newFrame)
+void Napvig::updateFrame (Rotation newFrame)
 {
 	oldFrame = frame;
 	frame = newFrame;
@@ -299,4 +268,8 @@ bool Napvig::isMapReady() const {
 
 bool Napvig::isReady () const {
 	return map.isReady () && flags.isReady ();
+}
+
+int Napvig::getDim() const {
+	return map.getDim ();
 }

@@ -2,12 +2,13 @@ cmake_minimum_required(VERSION 2.8.3)
 project(napvig)
 
 add_compile_options(-std=c++14)
-list(APPEND CMAKE_PREFIX_PATH ":/opt/libtorch")
+set(CMAKE_PREFIX_PATH "/opt/libtorch/share/cmake/Torch")
 
 set(EIGEN3_INCLUDE_DIR /usr/include/eigen3)
+set(USE_CUDA 0)
 
 find_package (Eigen3 3.3 REQUIRED NO_MODULE)
-find_package(Torch REQUIRED)
+find_package (Torch REQUIRED)
 
 find_package(catkin REQUIRED COMPONENTS
   roscpp
@@ -40,7 +41,7 @@ include_directories (
 	${EIGEN3_INCLUDE_DIR}
 )
 
-add_executable (napvig src/napvig_node.cpp src/napvig.cpp src/napvig_map.cpp)
+add_executable (napvig src/napvig_node.cpp src/napvig.cpp src/napvig_map.cpp src/rotation.cpp)
 target_link_libraries (napvig ${catkin_LIBRARIES} ${TORCH_LIBRARIES} sparcsnode systems_lib)
 add_dependencies(napvig ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 
@@ -48,4 +49,5 @@ add_executable (unicycle_control src/unicycle_control.cpp)
 target_link_libraries (unicycle_control ${catkin_LIBRARIES} ${TORCH_LIBRARIES} sparcsnode systems_lib)
 add_dependencies(unicycle_control ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 
-
+catkin_install_python(PROGRAMS scripts/display.py
+  DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION})

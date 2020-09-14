@@ -15,11 +15,11 @@ double NapvigMap::getNoAmplificationGain() const {
 	const double sqMR = pow(params.measureRadius,2);
 	const double sqSR = pow(params.smoothRadius,2);
 	return pow ((sqMR + sqSR)/
-			(2 * M_PI * sqMR * sqSR), 2/double(dim));
+			(2 * M_PI * sqMR * sqSR), 2/double(params.dim));
 }
 
 double NapvigMap::getSmoothGain () const {
-	return pow (2 * M_PI * pow(params.smoothRadius,2), double(dim)/2) * getNoAmplificationGain ();
+	return pow (2 * M_PI * pow(params.smoothRadius,2), double(params.dim)/2) * getNoAmplificationGain ();
 }
 
 
@@ -99,9 +99,8 @@ Tensor NapvigMap::preSmooth(const Tensor &x) const {
 	return potentialFunction (x) * smoothGain;
 }
 
-NapvigMap::NapvigMap(const NapvigMapParams &_params):
-	params(_params),
-	dim(N_DIM) // Fixed for now
+NapvigMap::NapvigMap(const NapvigMap::Params &_params):
+	params(_params)
 {
 	smoothGain = getSmoothGain ();
 	flags.addFlag ("measures_set");
@@ -114,7 +113,7 @@ Tensor NapvigMap::value (const Tensor &x) const {
 	if (measures.size(0) == 0)
 		return torch::zeros ({1}, kDouble)[0];
 	else
-		return montecarlo (&NapvigMap::preSmooth, this, dim, params.precision, x, params.smoothRadius);
+		return montecarlo (&NapvigMap::preSmooth, this, params.dim, params.precision, x, params.smoothRadius);
 }
 
 #ifdef AUTOGRAD
@@ -147,7 +146,7 @@ Tensor NapvigMap::grad (const Tensor &x) const {
 	if (measures.size(0) == 0)
 		return torch::zeros ({2}, kDouble);
 	else
-		return montecarlo (&NapvigMap::preSmoothGrad, this, dim, params.precision, x.view({1,dim}), params.smoothRadius);
+		return montecarlo (&NapvigMap::preSmoothGrad, this, params.dim, params.precision, x.view({1,params.dim}), params.smoothRadius);
 }
 
 double NapvigMap::gammaDistance (double distance) const {
@@ -158,6 +157,10 @@ double NapvigMap::gammaDistance (double distance) const {
 
 bool NapvigMap::isReady() const {
 	return flags.isReady ();
+}
+
+int NapvigMap::getDim() const {
+	return params.dim;
 }
 
 #if 0
@@ -204,7 +207,7 @@ void NapvigMap::setMeasures (const Tensor &newMeasures)
 {
 	Tensor validIdxes = (torch::isfinite (newMeasures).sum(1)).nonzero ();
 
-	measures = newMeasures.index ({validIdxes}).view ({validIdxes.size (0), 1, dim});
+	measures = newMeasures.index ({validIdxes}).view ({validIdxes.size (0), 1, params.dim});
 	measures = measures.index ({Slice(None,None,3), Ellipsis});
 
 	flags.set ("measures_set");

@@ -11,60 +11,54 @@
 #include "common.h"
 
 #include "napvig_map.h"
-
-enum NapvigAlgorithmType {
-	NAPVIG_SINGLE_STEP,
-	NAPVIG_PREDICT_COLLISION
-};
+#include "rotation.h"
 
 #include <complex>
 
-typedef std::complex<double> complexd;
-
-struct NapvigParams {
-	double stepAheadSize;
-	double gradientStepSize;
-	double terminationDistance;
-	double minDistance;
-	double scatterVariance;
-	int lookaheadHorizon;
-	int terminationCount;
-	NapvigAlgorithmType algorithm;
-};
-
-struct SearchHistory {
-	std::vector<torch::Tensor> triedPaths;
-	std::vector<torch::Tensor> initialSearches;
-};
-
 class Napvig
 {
-	NapvigMap map;
-	NapvigParams params;
-	ReadyFlags<std::string> flags;
-	const torch::Tensor initialPosition = torch::zeros ({2}, torch::kDouble);
-	const torch::Tensor initialSearch = torch::tensor ({1.0, 0.0}, torch::kDouble);
-
 public:
-#ifdef GRAD_DEBUG
-	torch::Tensor gradLog;
-#endif
 	struct State {
 		torch::Tensor position;
 		torch::Tensor search;
-	} state, oldState;
+		bool randomized;
+	};
 
-	complexd frame, oldFrame;
+	struct SearchHistory {
+		std::vector<torch::Tensor> triedPaths;
+		std::vector<torch::Tensor> initialSearches;
+	};
+
+	enum AlgorithmType {
+		SINGLE_STEP,
+		PREDICT_COLLISION
+	};
+
+	struct Params {
+		double stepAheadSize;
+		double gradientStepSize;
+		double terminationDistance;
+		double minDistance;
+		double scatterVariance;
+		int lookaheadHorizon;
+		int terminationCount;
+		AlgorithmType algorithm;
+	};
 
 private:
-#ifdef GRAD_DEBUG
-	std::pair<torch::Tensor, torch::Tensor> valleySearch (const torch::Tensor &xStep, const torch::Tensor &rSearch, int &num) const;
-	std::pair<State, torch::Tensor> nextSample (const State &q) const;
-#else
+	NapvigMap map;
+	Params params;
+	SearchHistory lastHistory;
+	ReadyFlags<std::string> flags, stateFlags;
+	const torch::Tensor initialPosition = torch::zeros ({2}, torch::kDouble);
+	const torch::Tensor initialSearch = torch::tensor ({1.0, 0.0}, torch::kDouble);
+	
+	State state, oldState;
+	Rotation frame, oldFrame;
+
 	torch::Tensor valleySearch (const torch::Tensor &xStep, const torch::Tensor &rSearch, int &num) const;
 	State nextSample (const State &q) const;
 	State step (State &q) const;
-#endif
 	torch::Tensor stepAhead (const State &q) const;
 	torch::Tensor getBaseOrthogonal (const torch::Tensor &base) const;
 	torch::Tensor projectOnto (const torch::Tensor &space, const at::Tensor &vector) const;
@@ -76,11 +70,11 @@ private:
 	double gammaDistance (double distance) const;
 
 public:
-	Napvig (const NapvigMapParams &mapParams,
-			const NapvigParams &napvigParams);
+	Napvig (const NapvigMap::Params &mapParams,
+			const Params &napvigParams);
 
 	State stepSingle ();
-	State stepDiscovery ();
+	std::pair<State, SearchHistory> stepDiscovery();
 	void step ();
 
 	void setMeasures (const torch::Tensor &measures);
@@ -89,11 +83,14 @@ public:
 	torch::Tensor mapGrad (const torch::Tensor &x) const;
 	torch::Tensor getPosition () const;
 	torch::Tensor getBearing () const;
+	SearchHistory getSearchHistory () const;
 	void resetState ();
-	void updateFrame (complexd newFrame);
+	void updateFrame (Rotation newFrame);
 
 	bool isMapReady () const;
 	bool isReady () const;
+
+	int getDim () const;
 };
 
 #endif // NAPVIG_H

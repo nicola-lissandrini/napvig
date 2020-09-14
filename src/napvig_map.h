@@ -12,18 +12,21 @@
 
 #define N_DIM 2
 
-struct NapvigMapParams {
-	double measureRadius;
-	double smoothRadius;
-	int precision;
-};
+
 
 class NapvigMap
 {
+public:
+	struct Params {
+		double measureRadius;
+		double smoothRadius;
+		int precision;
+		int dim;
+	};
+private:
+	Params params;
 	torch::Tensor measures;
-	NapvigMapParams params;
 	ReadyFlags<std::string> flags;
-	int dim;
 	double smoothGain;
 
 	double getSmoothGain() const;
@@ -39,13 +42,14 @@ class NapvigMap
 	torch::Tensor normSquare (const torch::Tensor &x) const;
 
 public:
-	NapvigMap (const NapvigMapParams &_params);
+	NapvigMap (const Params &_params);
 
 	torch::Tensor value (const torch::Tensor &x) const;
 	torch::Tensor grad (const torch::Tensor &x) const;
 	double gammaDistance (double distance) const;
 
 	bool isReady () const;
+	int getDim () const;
 
 	void setMeasures (const torch::Tensor &newMeasures);
 };

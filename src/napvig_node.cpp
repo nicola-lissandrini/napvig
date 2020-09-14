@@ -3,6 +3,7 @@
 #include <std_msgs/Float64MultiArray.h>
 #include <geometry_msgs/Pose2D.h>
 #include <nav_msgs/Path.h>
+#include <napvig/SearchHistory.h>
 
 using namespace ros;
 using namespace std;
@@ -10,6 +11,10 @@ using namespace XmlRpc;
 using namespace torch;
 using namespace at;
 using namespace torch::indexing;
+
+Tensor quaternionMsgToTorch(const geometry_msgs::Quaternion &quaternionMsg) {
+	return torch::tensor ({quaternionMsg.x, quaternionMsg.y, quaternionMsg.z, quaternionMsg.w}, torch::kDouble);
+}
 
 NapvigNode::NapvigNode ():
 	SparcsNode(NODE_NAME)
@@ -37,19 +42,20 @@ void NapvigNode::initTestGrid()
 
 void NapvigNode::initParams ()
 {
-	NapvigMapParams mapParams;
-	NapvigParams napvigParams;
+	NapvigMap::Params mapParams;
+	Napvig::Params napvigParams;
 
 	mapParams.measureRadius = paramDouble (params["map"], "measure_radius");
 	mapParams.smoothRadius = paramDouble (params["map"], "smooth_radius");
 	mapParams.precision = paramInt (params["map"],"precision");
+	mapParams.dim = paramInt(params["map"],"dimensions");
 
 	napvigParams.stepAheadSize = paramDouble (params["napvig"], "step_ahead_size");
 	napvigParams.gradientStepSize = paramDouble (params["napvig"], "gradient_step_size");
 	napvigParams.terminationDistance = paramDouble (params["napvig"], "termination_distance");
 	napvigParams.terminationCount = paramInt (params["napvig"], "termination_count");
 	napvigParams.lookaheadHorizon = paramInt  (params["napvig"], "lookahead_horizon");
-	napvigParams.algorithm = paramEnum<NapvigAlgorithmType> (params["napvig"], "algorithm", {"single_step", "predict_collision"});
+	napvigParams.algorithm = paramEnum<Napvig::AlgorithmType> (params["napvig"], "algorithm", {"single_step", "predict_collision"});
 	napvigParams.minDistance = paramDouble (params["napvig"],"min_distance");
 	napvigParams.scatterVariance = paramDouble (params["napvig"], "scatter_variance");
 
@@ -61,14 +67,15 @@ void NapvigNode::initParams ()
 	napvig = new Napvig (mapParams, napvigParams);
 }
 
-void NapvigNode::initROS () {
-	addSub ("measures_sub", paramString (params,"scan_topic"), 1, &NapvigNode::measuresCallback);
-	addSub ("odom_sub", paramString (params, "odom_topic"), 1, &NapvigNode::odomCallback);
-	addPub<std_msgs::Float64MultiArray> ("measures_pub", paramString(params,"measures_pub_topic"),1);
-	addPub<std_msgs::Float64MultiArray> ("map_values_pub", paramString(params,"map_values_pub_topic"),1);
-	addPub<geometry_msgs::Pose2D> ("setpoint_pub", paramString(params,"setpoint_pub_topic"), 1);
+void NapvigNode::initROS ()
+{
+	addSub ("measures_sub", paramString (params["topics"]["subs"],"scan"), 1, &NapvigNode::measuresCallback);
+	addSub ("odom_sub", paramString (params["topics"]["subs"], "odom"), 1, &NapvigNode::odomCallback);
+	addPub<std_msgs::Float64MultiArray> ("measures_pub", paramString(params["topics"]["pubs"],"measures"),1);
+	addPub<std_msgs::Float64MultiArray> ("map_values_pub", paramString(params["topics"]["pubs"],"map_values"),1);
+	addPub<geometry_msgs::Pose2D> ("setpoint_pub", paramString(params["topics"]["pubs"],"setpoint"), 1);
 	addPub<std_msgs::Float64MultiArray> ("grad_log_pub","/grad_log", 1);
-	addPub<nav_msgs::Path> ("search_history_pub", paramString (params,"search_history_pub"), 1);
+	addPub<napvig::SearchHistory> ("search_history_pub", paramString (params["topics"]["pubs"],"search_history"), 1);
 }
 
 Tensor polar2rectangularMeasure (double radius, double angle) {
@@ -149,9 +156,14 @@ void NapvigNode::measuresCallback (const sensor_msgs::LaserScan &scanMsg)
 
 	napvig->setMeasures (newMeasures);
 	publishMeasures (newMeasures);
+
 }
 
-void NapvigNode::odomCallback (const nav_msgs::Odometry &odomMsg)
+void NapvigNode::odomCallback (const nav_msgs::Odometry &odomMsg) {
+	napvig->updateFrame (Rotation (quaternionMsgToTorch (odomMsg.pose.pose.orientation)));
+}
+
+#ifdef COMPLEX
 {
 	complexd newFrame;
 	const double realPart = odomMsg.pose.pose.orientation.w;
@@ -161,45 +173,64 @@ void NapvigNode::odomCallback (const nav_msgs::Odometry &odomMsg)
 
 	napvig->updateFrame (newFrame);
 }
+#endif
 
 void NapvigNode::publishControl ()
 {
 	if (!napvig->isReady ())
 		return;
-
 	geometry_msgs::Pose2D poseMsg;
 	torch::Tensor nextStep, nextBearing;
 
-	napvig->resetState ();
 	napvig->step ();
 
 	nextStep = napvig->getPosition ();
 	nextBearing = napvig->getBearing ();
 
-	//cout << nextStep << endl;
-
 	poseMsg.x = nextStep[0].item ().toDouble ();
 	poseMsg.y = nextStep[1].item ().toDouble ();
 	poseMsg.theta = atan2 (poseMsg.y, poseMsg.x);
 
-	publish ("setpoint_pub", poseMsg);// temp  debug
+	publish ("setpoint_pub", poseMsg);
+}
 
-#ifdef GRAD_DEBUG
-	std_msgs::Float64MultiArray gradMsg;
-	gradMsg.layout.dim.resize (2);
-	gradMsg.layout.dim[0].size = napvig->gradLog.size(0);
-	gradMsg.layout.dim[1].size = napvig->gradLog.size(1);
-	gradMsg.data.resize (napvig->gradLog.numel ());
-	const double *dataPt = (double *) napvig->gradLog.toType (ScalarType::Double).data_ptr ();
-	gradMsg.data = vector<double> (dataPt, dataPt + napvig->gradLog.numel ());
-	publish ("grad_log_pub", gradMsg);
-#endif
+
+
+void NapvigNode::publishHistory ()
+{
+	Napvig::SearchHistory searchHistory = napvig->getSearchHistory ();
+	napvig::SearchHistory searchHistoryMsg;
+
+	for (Tensor currPath : searchHistory.triedPaths) {
+		nav_msgs::Path pathMsg;
+		const int currTrials = currPath.size (0);
+
+		pathMsg.poses.resize (currTrials);
+		for (int i = 0; i < currTrials; i++) {
+			pathMsg.poses[i].pose.position.x = currPath[i][0].item ().toDouble ();
+			pathMsg.poses[i].pose.position.y = currPath[i][1].item ().toDouble ();
+		}
+
+		searchHistoryMsg.triedPaths.push_back (pathMsg);
+	}
+
+	for (Tensor currSearch : searchHistory.initialSearches) {
+		geometry_msgs::Vector3 searchMsg;
+
+		searchMsg.x = currSearch[0].item ().toDouble ();
+		searchMsg.y = currSearch[1].item ().toDouble ();
+
+		searchHistoryMsg.initialSearch.push_back (searchMsg);
+	}
+
+	publish ("search_history_pub", searchHistoryMsg);
 }
 
 int NapvigNode::actions ()
 {
 	publishValues ();
 	publishControl ();
+	publishHistory ();
 
 	return 0;
 }

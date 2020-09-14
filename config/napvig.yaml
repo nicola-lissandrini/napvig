@@ -1,14 +1,19 @@
 napvig:
-  rate: 100.0
-  scan_topic: /scan
-  measures_pub_topic: /measures
-  map_values_pub_topic: /map_values
-  setpoint_pub_topic: /setpoint
-  odom_topic: /odom
+  rate: 100
+  topics:
+    subs:
+      scan: /scan
+      odom: /odom
+    pubs:
+      measures: /measures
+      map_values: /map_values
+      setpoint: /setpoint
+      search_history: /search_history
   map:
     measure_radius: 0.2
     smooth_radius: 0.1
     precision: 100
+    dimensions: 2
   napvig:
     step_ahead_size: 0.2
     gradient_step_size: 0.3
@@ -21,11 +26,11 @@ napvig:
   map_test:
     range_min: -2.0
     range_max: 2.0
-    range_step: 0.15
+    range_step: 0.2
     draw: value   # {none, value, grad}
 unicycle_control:
   rate: 100.0
   state_topic: /odom
   ref_topic: /setpoint
   command_topic: /cmd_vel
-  gains: [0.8, 0.2, 0.13]
+  gains: [0.8, 0.05, 0.13]

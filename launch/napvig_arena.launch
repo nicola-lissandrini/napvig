@@ -1,7 +1,7 @@
 <?xml version="1.0"?>
 
 <launch>
-	<arg name="world" value="columns" />
+	<arg name="world" value="corridor" />
 	<include file="$(find turtlebot3_gazebo)/launch/turtlebot3_world.launch">
 		<arg name="model" value="waffle" />
 	</include>
@@ -9,7 +9,7 @@
 	<group if="$(eval arg('world') == 'corridor')">
 		<param name="robot_description2" textfile="$(find napvig)/models/model.sdf" />
 
-		<node pkg="gazebo_ros" type="spawn_model" name="spawn_walls"  args="-sdf -model walls  -param robot_description2" />
+		<node pkg="gazebo_ros" type="spawn_model" name="spawn_walls"  args="-sdf -model walls -y -1  -param robot_description2" />
 	</group>
 	<group if="$(eval arg('world') == 'columns')">
 
