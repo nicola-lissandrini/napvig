@@ -53,8 +53,8 @@ private:
 	const torch::Tensor initialPosition = torch::zeros ({2}, torch::kDouble);
 	const torch::Tensor initialSearch = torch::tensor ({1.0, 0.0}, torch::kDouble);
 	
-	State state, oldState;
-	Rotation frame, oldFrame;
+	State state, oldState, setpoint;
+	Frame frame, oldFrame;
 
 	torch::Tensor valleySearch (const torch::Tensor &xStep, const torch::Tensor &rSearch, int &num) const;
 	State nextSample (const State &q) const;
@@ -63,6 +63,7 @@ private:
 	torch::Tensor getBaseOrthogonal (const torch::Tensor &base) const;
 	torch::Tensor projectOnto (const torch::Tensor &space, const at::Tensor &vector) const;
 	State randomize (const State &state) const;
+	void keepLastSearch ();
 	std::tuple<State, bool, torch::Tensor> predictCollision(const State &initialState, int maxCount) const;
 	torch::Tensor computeBearing (const torch::Tensor &oldPosition, const torch::Tensor &nextPosition) const;
 
@@ -75,17 +76,19 @@ public:
 
 	State stepSingle ();
 	std::pair<State, SearchHistory> stepDiscovery();
-	void step ();
+	bool step();
 
 	void setMeasures (const torch::Tensor &measures);
 
 	double mapValue (const torch::Tensor &x) const;
 	torch::Tensor mapGrad (const torch::Tensor &x) const;
-	torch::Tensor getPosition () const;
-	torch::Tensor getBearing () const;
+	torch::Tensor getSetpointPosition () const;
+	torch::Tensor getSetpointDirection () const;
 	SearchHistory getSearchHistory () const;
-	void resetState ();
-	void updateFrame (Rotation newFrame);
+	void updatePosition ();
+	void updateOrientation ();
+	void updateFrame (Frame newFrame);
+	void updateTarget (Frame targetFrame);
 
 	bool isMapReady () const;
 	bool isReady () const;

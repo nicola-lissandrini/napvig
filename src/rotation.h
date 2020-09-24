@@ -36,6 +36,11 @@ public:
 	}
 };
 
+struct Frame
+{
+	Rotation orientation;
+	torch::Tensor position;
+};
 
 std::ostream& operator<<(std::ostream &os, const Rotation &dt);
 

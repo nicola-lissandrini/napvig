@@ -50,6 +50,7 @@ class NapvigNode : public SparcsNode
 
 	void measuresCallback(const sensor_msgs::LaserScan &scanMsg);
 	void odomCallback (const nav_msgs::Odometry &odomMsg);
+	void targetCallback (const geometry_msgs::Pose &targetMsg);
 
 public:
 	NapvigNode ();

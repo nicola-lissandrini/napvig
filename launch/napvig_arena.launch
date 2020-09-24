@@ -9,7 +9,7 @@
 	<group if="$(eval arg('world') == 'corridor')">
 		<param name="robot_description2" textfile="$(find napvig)/models/model.sdf" />
 
-		<node pkg="gazebo_ros" type="spawn_model" name="spawn_walls"  args="-sdf -model walls -y -1  -param robot_description2" />
+		<node pkg="gazebo_ros" type="spawn_model" name="spawn_walls"  args="-sdf -model walls -y 0  -param robot_description2" />
 	</group>
 	<group if="$(eval arg('world') == 'columns')">
 

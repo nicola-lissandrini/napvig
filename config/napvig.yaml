@@ -4,6 +4,7 @@ napvig:
     subs:
       scan: /scan
       odom: /odom
+      target: /target
     pubs:
       measures: /measures
       map_values: /map_values
@@ -18,19 +19,19 @@ napvig:
     step_ahead_size: 0.2
     gradient_step_size: 0.3
     termination_distance: 0.01
-    termination_count: 25
+    termination_count: 50
     lookahead_horizon: 4
     algorithm: predict_collision # {predict_collision, single_step}
     min_distance: 0.15
     scatter_variance: 1 # rad
   map_test:
-    range_min: -2.0
-    range_max: 2.0
+    range_min: -0.5
+    range_max: 1.5
     range_step: 0.2
-    draw: value   # {none, value, grad}
+    draw: none   # {none, value, grad}
 unicycle_control:
   rate: 100.0
   state_topic: /odom
   ref_topic: /setpoint
   command_topic: /cmd_vel
-  gains: [0.8, 0.05, 0.13]
+  gains: [0.6, 0.3, 0.03]

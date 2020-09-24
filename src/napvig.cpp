@@ -13,6 +13,9 @@ Napvig::Napvig (const NapvigMap::Params &mapParams, const Napvig::Params &napvig
 	params(napvigParams),
 	state{initialPosition, initialSearch}
 {
+
+	flags.addFlag ("first_measure", true);
+	flags.addFlag ("first_frame", true);
 	flags.addFlag ("new_measures");
 	flags.addFlag ("frame_updated");
 }
@@ -40,6 +43,7 @@ Tensor Napvig::projectOnto (const Tensor &space, const Tensor &vector) const {
 	return space.mm (space.t ()).mm (vector.unsqueeze (1)).squeeze ();
 }
 
+// Core algorithm
 Tensor Napvig::valleySearch (const Tensor &xStep, const Tensor &rSearch, int &num) const
 {
 	// Get basis orthonormal to direction
@@ -97,32 +101,6 @@ Napvig::State Napvig::stepSingle()
 {
 	return nextSample (state);
 }
-
-#ifdef COMPLEX
-complexd vec2complex (const Tensor &tensor) {
-	return tensor[0].item().toDouble () + 1i * tensor[1].item().toDouble ();
-}
-
-Tensor complex2vec (complexd val) {
-	Tensor ret = torch::empty ({2}, kDouble);
-	ret[0] = real(val);
-	ret[1] = imag(val);
-	return ret;
-}
-
-// Rotate the search direction by a gaussian distributed random angle of variance `params.scatterVariance`
-Napvig::State Napvig::randomize (const State &state) const
-{
-	State randomized;
-	double thetaRandom = torch::normal (0.0, params.scatterVariance, {1}).item().toDouble ();
-	complexd searchComplex = vec2complex (state.search);
-
-	randomized.search = complex2vec (std::polar(1.0,thetaRandom) * searchComplex);
-	randomized.position = state.position;
-
-	return randomized;
-}
-#endif
 
 Napvig::State Napvig::randomize (const State &state) const
 {
@@ -201,30 +179,44 @@ pair<Napvig::State, Napvig::SearchHistory> Napvig::stepDiscovery()
 	return {step, history};
 }
 
-void Napvig::step ()
-{
-	// Wait until both measures and frame are updated
-	if (!flags["new_measures"] || !flags["frame_updated"])
-		return;
+void Napvig::keepLastSearch () {
+	oldState = state;
+	state.search = setpoint.search;
+}
 
-	resetState ();
+bool Napvig::step ()
+{
+	// Wait until at least one between measures and frame are updated
+	if (!flags["new_measures"] && !flags["frame_updated"])
+		return false;
+
+	updatePosition ();
+	updateOrientation ();
+
 
 	switch (params.algorithm) {
 	case SINGLE_STEP:
-		state = stepSingle ();
+		setpoint = stepSingle ();
 		break;
 	case PREDICT_COLLISION:
-		tie (state, lastHistory) = stepDiscovery ();
+		tie (setpoint, lastHistory) = stepDiscovery ();
 		break;
 	}
+
+	// Update last search direction as state
+	keepLastSearch ();
+
 	flags.setProcessed ();
+
+	return true;
 }
 
 void Napvig::setMeasures (const Tensor &measures)
 {
 	map.setMeasures (measures);
 
-	flags.set("new_measures");
+	flags.set ("first_measure");
+	flags.set ("new_measures");
 }
 
 double Napvig::mapValue (const Tensor &x) const {
@@ -235,31 +227,50 @@ Tensor Napvig::mapGrad(const Tensor &x) const {
 	return map.grad (x);
 }
 
-Tensor Napvig::getPosition() const {
-	return state.position;
+Tensor Napvig::getSetpointPosition() const {
+	return setpoint.position;
 }
 
-Tensor Napvig::getBearing() const {
-	return state.search;
+Tensor Napvig::getSetpointDirection() const {
+	return setpoint.search;
 }
 
 Napvig::SearchHistory Napvig::getSearchHistory() const {
 	return lastHistory;
 }
 
-void Napvig::resetState ()
-{
+void Napvig::updateOrientation () {
 	oldState = state;
-	state.position = initialPosition;
-	state.search = initialSearch;
+	if (flags["frame_updated"]) {
+		state.search = frame.orientation.inv () * oldFrame.orientation * state.search;
+	}
 }
 
-void Napvig::updateFrame (Rotation newFrame)
+void Napvig::updatePosition () {
+	oldState = state;
+	if (flags["new_measures"]) {
+		// If measures have been update, reset the map
+		state.position = initialPosition.clone ();
+	} else {
+		// Otherwise, the robot has moved before the new scan, so we go open loop:
+		// This is reasonable if the scan rate is sufficiently higher than the motion
+		// of the obstacles
+		state.position += frame.position - oldFrame.position;
+	}
+}
+
+void Napvig::updateFrame (Frame newFrame)
 {
 	oldFrame = frame;
 	frame = newFrame;
 
+	flags.set ("first_frame");
 	flags.set ("frame_updated");
+}
+
+void Napvig::updateTarget (Frame targetFrame)
+{
+	// Not implemented yet
 }
 
 bool Napvig::isMapReady() const {
@@ -267,7 +278,7 @@ bool Napvig::isMapReady() const {
 }
 
 bool Napvig::isReady () const {
-	return map.isReady () && flags.isReady ();
+	return map.isReady () && flags["first_measure"] && flags["first_frame"];
 }
 
 int Napvig::getDim() const {

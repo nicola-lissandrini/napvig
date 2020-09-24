@@ -13,7 +13,15 @@ using namespace at;
 using namespace torch::indexing;
 
 Tensor quaternionMsgToTorch(const geometry_msgs::Quaternion &quaternionMsg) {
-	return torch::tensor ({quaternionMsg.x, quaternionMsg.y, quaternionMsg.z, quaternionMsg.w}, torch::kDouble);
+	return torch::tensor ({quaternionMsg.x,
+						   quaternionMsg.y,
+						   quaternionMsg.z,
+						   quaternionMsg.w}, torch::kDouble);
+}
+Tensor pointMsgToTorch (const geometry_msgs::Point &vectorMsg) {
+	return torch::tensor ({vectorMsg.x,
+						  vectorMsg.y,
+						  vectorMsg.z}, torch::kDouble);
 }
 
 NapvigNode::NapvigNode ():
@@ -71,6 +79,8 @@ void NapvigNode::initROS ()
 {
 	addSub ("measures_sub", paramString (params["topics"]["subs"],"scan"), 1, &NapvigNode::measuresCallback);
 	addSub ("odom_sub", paramString (params["topics"]["subs"], "odom"), 1, &NapvigNode::odomCallback);
+	addSub ("target_sub", paramString (params["topics"]["subs"], "target"), 1, &NapvigNode::targetCallback);
+
 	addPub<std_msgs::Float64MultiArray> ("measures_pub", paramString(params["topics"]["pubs"],"measures"),1);
 	addPub<std_msgs::Float64MultiArray> ("map_values_pub", paramString(params["topics"]["pubs"],"map_values"),1);
 	addPub<geometry_msgs::Pose2D> ("setpoint_pub", paramString(params["topics"]["pubs"],"setpoint"), 1);
@@ -160,20 +170,14 @@ void NapvigNode::measuresCallback (const sensor_msgs::LaserScan &scanMsg)
 }
 
 void NapvigNode::odomCallback (const nav_msgs::Odometry &odomMsg) {
-	napvig->updateFrame (Rotation (quaternionMsgToTorch (odomMsg.pose.pose.orientation)));
+	napvig->updateFrame (Frame{Rotation (quaternionMsgToTorch (odomMsg.pose.pose.orientation)),
+							   pointMsgToTorch (odomMsg.pose.pose.position).slice (0,0,2)});
 }
 
-#ifdef COMPLEX
-{
-	complexd newFrame;
-	const double realPart = odomMsg.pose.pose.orientation.w;
-	const double imagPart = odomMsg.pose.pose.orientation.z;
-
-	newFrame = pow (realPart + 1i * imagPart, 2);	// Squared since the quaternion holds half angle
-
-	napvig->updateFrame (newFrame);
+void NapvigNode::targetCallback (const geometry_msgs::Pose &targetMsg) {
+	napvig->updateTarget (Frame{Rotation (quaternionMsgToTorch (targetMsg.orientation)),
+								pointMsgToTorch (targetMsg.position).slice (0,0,2)});
 }
-#endif
 
 void NapvigNode::publishControl ()
 {
@@ -182,10 +186,11 @@ void NapvigNode::publishControl ()
 	geometry_msgs::Pose2D poseMsg;
 	torch::Tensor nextStep, nextBearing;
 
-	napvig->step ();
+	if (!napvig->step ())
+		return;
 
-	nextStep = napvig->getPosition ();
-	nextBearing = napvig->getBearing ();
+	nextStep = napvig->getSetpointPosition ();
+	nextBearing = napvig->getSetpointDirection ();
 
 	poseMsg.x = nextStep[0].item ().toDouble ();
 	poseMsg.y = nextStep[1].item ().toDouble ();

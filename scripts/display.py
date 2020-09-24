@@ -9,6 +9,8 @@ from geometry_msgs.msg import Pose2D, Vector3
 from napvig.msg import SearchHistory
 import matplotlib.pyplot as plt
 
+import os 
+
 meas_topic = "/measures"
 map_topic = "/map_values"
 setpt_topic = "/setpoint"
@@ -59,6 +61,7 @@ class DisplayNode:
         self.history_sub = rospy.Subscriber (history_topic, SearchHistory, self.history_callback, queue_size=1)
         self.sync_meas = False
         self.sync_map = False
+        self.frame_no = 0
         
         self.fig.canvas.mpl_connect('close_event', handle_close)
 
@@ -120,8 +123,11 @@ class DisplayNode:
         self.draw_history ()
 
         plt.scatter (self.meas_np[:,0], self.meas_np[:,1],2.5)
+        plt.gca().set_xlim (-2.5, 2.5)
         plt.gca().set_aspect('equal', adjustable='box')
         plt.draw ()
+        plt.savefig ("replays/{0:04d}.png".format (self.frame_no),  bbox_inches='tight', pad_inches=0)
+        self.frame_no += 1
  
     def spin(self):
         rospy.spin ()
