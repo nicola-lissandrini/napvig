@@ -11,13 +11,16 @@ using namespace std;
 Napvig::Napvig (const NapvigMap::Params &mapParams, const Napvig::Params &napvigParams):
 	map(mapParams),
 	params(napvigParams),
-	state{initialPosition, initialSearch}
+	state{initialPosition, initialSearch},
+	mode(EXPLOITATION),
+	targetUnreachable(false)
 {
-
 	flags.addFlag ("first_measure", true);
 	flags.addFlag ("first_frame", true);
+	flags.addFlag ("first_target", true);
 	flags.addFlag ("new_measures");
 	flags.addFlag ("frame_updated");
+	flags.addFlag ("target_updated");
 }
 
 Napvig::State Napvig::nextSample (const State &q) const
@@ -97,9 +100,9 @@ bool Napvig::collides (const Tensor &x) const {
 }
 
 
-Napvig::State Napvig::stepSingle()
+Napvig::State Napvig::stepSingle (State initialState)
 {
-	return nextSample (state);
+	return nextSample (initialState);
 }
 
 Napvig::State Napvig::randomize (const State &state) const
@@ -115,7 +118,7 @@ Napvig::State Napvig::randomize (const State &state) const
 	return randomized;
 }
 
-tuple<Napvig::State, bool, Tensor> Napvig::predictCollision (const State &initialState, int maxCount) const
+tuple<Napvig::State, bool, Tensor> Napvig::predictTrajectory (const State &initialState, int maxCount) const
 {
 	Napvig::State first, curr;
 	Tensor history;
@@ -133,10 +136,8 @@ tuple<Napvig::State, bool, Tensor> Napvig::predictCollision (const State &initia
 	while (!collision && stepCount < maxCount) {
 		curr = nextSample (curr);
 		collision = collides (curr.position);
-		history = torch::cat ({history, curr.position.unsqueeze (0)},0);
 
-		if (collision)
-			cout << "Collision in prediction at sample " << stepCount << endl;
+		history = torch::cat ({history, curr.position.unsqueeze (0)},0);
 
 		stepCount++;
 	}
@@ -145,7 +146,7 @@ tuple<Napvig::State, bool, Tensor> Napvig::predictCollision (const State &initia
 	return {first, collision, history};
 }
 
-pair<Napvig::State, Napvig::SearchHistory> Napvig::stepDiscovery()
+pair<Napvig::State, Napvig::SearchHistory> Napvig::stepRandomizedRecovery (State initialState)
 {
 	// Perform first deterministic step
 	State step;
@@ -154,7 +155,7 @@ pair<Napvig::State, Napvig::SearchHistory> Napvig::stepDiscovery()
 
 	bool collision;
 
-	tie (step, collision, currHistory) = predictCollision (state, params.lookaheadHorizon);
+	tie (step, collision, currHistory) = predictTrajectory (state, params.lookaheadHorizon);
 	history.triedPaths.push_back (currHistory);
 	history.initialSearches.push_back (state.search);
 	
@@ -169,7 +170,7 @@ pair<Napvig::State, Napvig::SearchHistory> Napvig::stepDiscovery()
 	while (collision) {
 		randomized = randomize (randomized);
 
-		tie (step, collision, currHistory) = predictCollision (randomized, params.lookaheadHorizon);
+		tie (step, collision, currHistory) = predictTrajectory (randomized, params.lookaheadHorizon);
 		history.triedPaths.push_back (currHistory);
 		history.initialSearches.push_back (randomized.search);
 		trialNeeded++;
@@ -177,6 +178,58 @@ pair<Napvig::State, Napvig::SearchHistory> Napvig::stepDiscovery()
 
 	// Take the last step
 	return {step, history};
+}
+
+// Perform N predictions with N initial directions and choose the best one
+pair<Napvig::State, Napvig::SearchHistory> Napvig::stepOptimizedTrajectory (State initialState)
+{
+	State step, current;
+	Tensor trajectory;
+	vector<State> steps;
+	Tensor costs;
+	bool collision;
+	int count = 0;
+	SearchHistory history;
+
+	current = initialState;
+
+	// Initialize empty vector for trajectory costs
+	costs = torch::empty ({(int)floor((params.trajectoryOptimizerParams.rangeAngleMax -
+										params.trajectoryOptimizerParams.rangeAngleMin) /
+										params.trajectoryOptimizerParams.rangeAngleStep)}, kDouble);
+
+	// Grid search on angles:
+	for (double currAngle = params.trajectoryOptimizerParams.rangeAngleMin;
+		 currAngle < params.trajectoryOptimizerParams.rangeAngleMax;
+		 currAngle += params.trajectoryOptimizerParams.rangeAngleStep, count ++)
+	{
+		Rotation currRotation = Rotation::fromAxisAngle (Rotation::axis2d (), tensor({currAngle}, kDouble));
+		current.search = currRotation * initialState.search;
+		tie (step, collision, trajectory) = predictTrajectory (current, params.lookaheadHorizon);
+
+		steps.push_back (step);
+		if (collision)
+			costs[count] = INFINITY;
+		else
+			costs[count] = evaluateCost (trajectory);
+
+		// Debug purposes - keep track of tried trajectories
+		history.triedPaths.push_back (trajectory);
+		history.initialSearches.push_back (step.search);
+
+
+		cout << "Angle " << count << " score " << costs[count].item ().toDouble () << endl;
+	}
+
+	// Choose step corresponding to trajectory with maximum score
+	int bestIndex = costs.argmin ().item ().toInt ();
+
+	// Save to history (for debug)
+	history.chosen = bestIndex;
+
+	cout << "Chosen " << bestIndex << endl; // " " << params.trajectoryOptimizerParams.rangeAngleMin + double (bestIndex) * params.trajectoryOptimizerParams.rangeAngleStep <<  endl;
+
+	return {steps[bestIndex], history};
 }
 
 void Napvig::keepLastSearch () {
@@ -196,10 +249,13 @@ bool Napvig::step ()
 
 	switch (params.algorithm) {
 	case SINGLE_STEP:
-		setpoint = stepSingle ();
+		setpoint = stepSingle (state);
 		break;
-	case PREDICT_COLLISION:
-		tie (setpoint, lastHistory) = stepDiscovery ();
+	case RANDOMIZED_RECOVERY:
+		tie (setpoint, lastHistory) = stepRandomizedRecovery (state);
+		break;
+	case OPTIMIZED_TRAJECTORY:
+		tie(setpoint, lastHistory) = stepOptimizedTrajectory (state);
 		break;
 	}
 
@@ -209,6 +265,43 @@ bool Napvig::step ()
 	flags.setProcessed ();
 
 	return true;
+}
+
+
+
+double Napvig::evaluateCost (const Tensor &trajectory) const
+{
+	switch (mode) {
+	case EXPLORATION:
+		// Not implemented yet
+		return NAN;
+	case EXPLOITATION:
+		return costDistanceToTarget (trajectory);
+	}
+
+	return NAN; // suppress warning
+}
+
+
+double Napvig::costPathLength (const Tensor &trajectory) const
+{
+	Tensor sum = tensor ({0},kDouble);
+
+	for (int i = 1; i < trajectory.size(0); i++) {
+		sum +=  (trajectory[i] - trajectory[i-1]).norm ();
+	}
+
+	return sum.item ().toDouble ();
+}
+
+double Napvig::costDistanceToTarget (const Tensor &trajectory) const
+{
+	Tensor sum = tensor ({0}, kDouble);
+	for (int i = 0; i < trajectory.size(0); i++) {
+		sum += (targetFrame.position - trajectory[i]).norm ();
+	}
+
+	return sum.item().toDouble ();
 }
 
 void Napvig::setMeasures (const Tensor &measures)
@@ -268,9 +361,12 @@ void Napvig::updateFrame (Frame newFrame)
 	flags.set ("frame_updated");
 }
 
-void Napvig::updateTarget (Frame targetFrame)
+void Napvig::updateTarget (Frame newTargetFrame)
 {
-	// Not implemented yet
+	targetFrame = newTargetFrame;
+
+	flags.set ("first_target");
+	flags.set ("target_updated");
 }
 
 bool Napvig::isMapReady() const {
@@ -278,7 +374,12 @@ bool Napvig::isMapReady() const {
 }
 
 bool Napvig::isReady () const {
-	return map.isReady () && flags["first_measure"] && flags["first_frame"];
+	// NOTE: first_target only if full_exploit is used
+	return map.isReady () && flags["first_measure"] && flags["first_frame"] && flags["first_target"];
+}
+
+bool Napvig::isTargetUnreachable() const {
+	return targetUnreachable;
 }
 
 int Napvig::getDim() const {

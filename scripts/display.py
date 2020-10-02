@@ -5,7 +5,7 @@ import rospy
 import numpy as np
 
 from std_msgs.msg import Float64MultiArray
-from geometry_msgs.msg import Pose2D, Vector3
+from geometry_msgs.msg import Pose2D, Vector3, Pose
 from napvig.msg import SearchHistory
 import matplotlib.pyplot as plt
 
@@ -15,7 +15,10 @@ meas_topic = "/measures"
 map_topic = "/map_values"
 setpt_topic = "/setpoint"
 history_topic = "/search_history"
+target_body_topic = "/target_body"
 grad = False
+save_replay = False
+minimal = True
 
 def handle_close (fig):
     quit ()
@@ -32,7 +35,14 @@ class DisplayNode:
         self.meas_np = np.array (measures.data)
         self.meas_np = np.reshape (self.meas_np, (measures.layout.dim[0].size, measures.layout.dim[1].size))
         self.sync_meas = True
-    
+
+        if (minimal):
+            print ("from meas")
+            self.draw ()
+            print ("from meas2")
+
+    def target_callback (self, target):
+        self.target = target.position
 
     def map_callback (self, map_values):
         self.ranges = map_values.data[0:3]
@@ -56,12 +66,15 @@ class DisplayNode:
 
         self.fig = plt.figure ()
         self.meas_sub = rospy.Subscriber (meas_topic, Float64MultiArray, self.measures_callback, queue_size=1)
-        self.map_sub = rospy.Subscriber (map_topic, Float64MultiArray, self.map_callback, queue_size=1)
+        if (not minimal):
+            self.map_sub = rospy.Subscriber (map_topic, Float64MultiArray, self.map_callback, queue_size=1)
         self.setpt_sub = rospy.Subscriber (setpt_topic, Pose2D, self.setpt_callback, queue_size=1)
         self.history_sub = rospy.Subscriber (history_topic, SearchHistory, self.history_callback, queue_size=1)
+        #self.target_sub = rospy.Subscriber (target_body_topic, Pose, self.target_callback, queue_size=1)
         self.sync_meas = False
         self.sync_map = False
         self.frame_no = 0
+        self.target = Vector3 ()
         
         self.fig.canvas.mpl_connect('close_event', handle_close)
 
@@ -83,29 +96,44 @@ class DisplayNode:
         
         for curr_path in self.history.triedPaths:
             last_pos = Vector3 ()
-            self.draw_turtle (last_pos, self.history.initialSearch[j])
+            #self.draw_turtle (last_pos, self.history.initialSearch[j])
             for curr_pos in curr_path.poses:
-                self.draw_turtle (curr_pos.pose.position, sub (curr_pos.pose.position, last_pos))
+                if (j == self.history.chosen):
+                    curr_color = "k"
+                else:
+                    curr_color = "0.5"
+                self.draw_turtle (curr_pos.pose.position, sub (curr_pos.pose.position, last_pos), arrow_color=curr_color)
                 last_pos = curr_pos.pose.position
+            j += 1
 
     def draw(self):
-        if (self.meas_np is None or (self.values is None and self.grads is None) ):
+        if (self.meas_np is None):
+            print ("no measures")
             return
-
-        if (not self.sync_meas or not self.sync_map):
+            
+        if ((self.grads is None and self.values is None) and not minimal):
+            print ("no grads or vals when not minimal")
+            return
+        if (not self.sync_map and not minimal):
+            print ("no map updated")
+            return
+            
+        if (not self.sync_meas):
+            print ("no meas updated")
             return
         
         self.sync_map = False
         self.sync_meas = False
         
-        xy_range = np.arange (self.ranges[0], self.ranges[1], self.ranges[2])
-        x, y = np.meshgrid (xy_range, xy_range)
-
         self.fig.clear ()
-        if (not grad):
-            plt.pcolormesh (x, y, self.values, edgecolors="none", antialiased=True )
-        else:
-            plt.quiver(y, x, self.grads[:,0], self.grads[:,1], minshaft=0.1)
+        if (not minimal):
+            xy_range = np.arange (self.ranges[0], self.ranges[1], self.ranges[2])
+            x, y = np.meshgrid (xy_range, xy_range)
+
+            if (not grad):
+                plt.pcolormesh (x, y, self.values, edgecolors="none", antialiased=True )
+            else:
+                plt.quiver(y, x, self.grads[:,0], self.grads[:,1], minshaft=0.1)
 
         setpt_dir = Pose2D ()
         pos_zero = Pose2D ()
@@ -121,12 +149,15 @@ class DisplayNode:
         self.draw_turtle (pos_zero, setpt_zero, arrow_color="g")
 
         self.draw_history ()
+        
+        plt.scatter (self.target.x, self.target.y, 10.1, "r")
 
         plt.scatter (self.meas_np[:,0], self.meas_np[:,1],2.5)
         plt.gca().set_xlim (-2.5, 2.5)
         plt.gca().set_aspect('equal', adjustable='box')
         plt.draw ()
-        plt.savefig ("replays/{0:04d}.png".format (self.frame_no),  bbox_inches='tight', pad_inches=0)
+        if (save_replay):
+            plt.savefig ("replays/{0:04d}.png".format (self.frame_no),  bbox_inches='tight', pad_inches=0)
         self.frame_no += 1
  
     def spin(self):

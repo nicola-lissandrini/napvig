@@ -16,7 +16,8 @@ torch::Tensor quaternionMsgToTorch (const geometry_msgs::Quaternion &quaternionM
 enum TestDraw {
 	TEST_DRAW_NONE = 0,
 	TEST_DRAW_VALUE,
-	TEST_DRAW_GRAD
+	TEST_DRAW_GRAD,
+	TEST_DRAW_MINIMAL
 };
 
 struct NapvigNodeParams {

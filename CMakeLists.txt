@@ -45,6 +45,10 @@ add_executable (napvig src/napvig_node.cpp src/napvig.cpp src/napvig_map.cpp src
 target_link_libraries (napvig ${catkin_LIBRARIES} ${TORCH_LIBRARIES} sparcsnode systems_lib)
 add_dependencies(napvig ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 
+add_executable (fake_target src/fake_target_node.cpp)
+target_link_libraries (fake_target ${catkin_LIBRARIES} ${TORCH_LIBRARIES} sparcsnode systems_lib)
+add_dependencies(fake_target ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
+
 add_executable (unicycle_control src/unicycle_control.cpp)
 target_link_libraries (unicycle_control ${catkin_LIBRARIES} ${TORCH_LIBRARIES} sparcsnode systems_lib)
 add_dependencies(unicycle_control ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})

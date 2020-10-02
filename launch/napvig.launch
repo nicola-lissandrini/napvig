@@ -5,6 +5,7 @@
 
 	<rosparam command="load" file="$(find napvig)/config/napvig.yaml" />
 
-	<node  type="napvig" name="napvig" pkg="napvig" output="screen" />
+	<node type="napvig" name="napvig" pkg="napvig" output="screen" />
+	<node type="fake_target" name="fake_target" pkg="napvig" output="screen" />
 	<node type="unicycle_control" name="unicycle_control" pkg="napvig" output="screen" />
 </launch>

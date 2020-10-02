@@ -27,11 +27,19 @@ public:
 	struct SearchHistory {
 		std::vector<torch::Tensor> triedPaths;
 		std::vector<torch::Tensor> initialSearches;
+		int chosen;
 	};
 
 	enum AlgorithmType {
 		SINGLE_STEP,
-		PREDICT_COLLISION
+		RANDOMIZED_RECOVERY,
+		OPTIMIZED_TRAJECTORY
+	};
+
+	enum NapvigMode {
+		FULLY_EXPLORATION,
+		FULLY_EXPLOITATION,
+		PARTIALLY_EXPLOITATION
 	};
 
 	struct Params {
@@ -43,6 +51,12 @@ public:
 		int lookaheadHorizon;
 		int terminationCount;
 		AlgorithmType algorithm;
+
+		struct {
+			double rangeAngleMin;
+			double rangeAngleMax;
+			double rangeAngleStep;
+		} trajectoryOptimizerParams;
 	};
 
 private:
@@ -55,6 +69,9 @@ private:
 	
 	State state, oldState, setpoint;
 	Frame frame, oldFrame;
+	Frame targetFrame;
+	bool targetUnreachable;
+	NapvigMode mode;
 
 	torch::Tensor valleySearch (const torch::Tensor &xStep, const torch::Tensor &rSearch, int &num) const;
 	State nextSample (const State &q) const;
@@ -64,8 +81,11 @@ private:
 	torch::Tensor projectOnto (const torch::Tensor &space, const at::Tensor &vector) const;
 	State randomize (const State &state) const;
 	void keepLastSearch ();
-	std::tuple<State, bool, torch::Tensor> predictCollision(const State &initialState, int maxCount) const;
+	std::tuple<State, bool, torch::Tensor> predictTrajectory(const State &initialState, int maxCount) const;
 	torch::Tensor computeBearing (const torch::Tensor &oldPosition, const torch::Tensor &nextPosition) const;
+	double evaluateCost (const torch::Tensor &trajectory) const;
+	double costDistanceToTarget (const torch::Tensor &trajectory) const;
+	double costPathLength (const torch::Tensor &trajectory) const;
 
 	bool collides (const torch::Tensor &x) const;
 	double gammaDistance (double distance) const;
@@ -74,8 +94,9 @@ public:
 	Napvig (const NapvigMap::Params &mapParams,
 			const Params &napvigParams);
 
-	State stepSingle ();
-	std::pair<State, SearchHistory> stepDiscovery();
+	State stepSingle (State initialState);
+	std::pair<State, SearchHistory> stepRandomizedRecovery(State initialState);
+	std::pair<State, SearchHistory> stepOptimizedTrajectory (State initialState);
 	bool step();
 
 	void setMeasures (const torch::Tensor &measures);
@@ -88,10 +109,11 @@ public:
 	void updatePosition ();
 	void updateOrientation ();
 	void updateFrame (Frame newFrame);
-	void updateTarget (Frame targetFrame);
+	void updateTarget (Frame newTargetFrame);
 
 	bool isMapReady () const;
 	bool isReady () const;
+	bool isTargetUnreachable () const;
 
 	int getDim () const;
 };

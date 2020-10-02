@@ -4,7 +4,7 @@ napvig:
     subs:
       scan: /scan
       odom: /odom
-      target: /target
+      target: /target_body
     pubs:
       measures: /measures
       map_values: /map_values
@@ -16,22 +16,31 @@ napvig:
     precision: 100
     dimensions: 2
   napvig:
-    step_ahead_size: 0.2
+    step_ahead_size: 0.3
     gradient_step_size: 0.3
     termination_distance: 0.01
     termination_count: 50
     lookahead_horizon: 4
-    algorithm: predict_collision # {predict_collision, single_step}
+    algorithm: optimized_trajectory # {optimized_trajectory, randomized_recovery, single_step}
     min_distance: 0.15
     scatter_variance: 1 # rad
+    trajectory_optimizer: # Only needed when optimized_trajectory algorithm is selected
+      scan_range_min: rad(-pi)
+      scan_range_max: rad(pi)
+      scan_range_step: rad(pi/4)
   map_test:
-    range_min: -0.5
-    range_max: 1.5
-    range_step: 0.2
-    draw: none   # {none, value, grad}
+    range_min: -2.5
+    range_max: 2.5
+    range_step: 0.1
+    draw: minimal   # {none, value, grad, minimal}
 unicycle_control:
   rate: 100.0
   state_topic: /odom
   ref_topic: /setpoint
   command_topic: /cmd_vel
-  gains: [0.6, 0.3, 0.03]
+  gains: [0.6, 0.2, 0.03]
+fake_target:
+  rate: 100
+  turtle_odom: /odom
+  target_pos: /target
+  target_body: /target_body

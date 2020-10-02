@@ -63,14 +63,19 @@ void NapvigNode::initParams ()
 	napvigParams.terminationDistance = paramDouble (params["napvig"], "termination_distance");
 	napvigParams.terminationCount = paramInt (params["napvig"], "termination_count");
 	napvigParams.lookaheadHorizon = paramInt  (params["napvig"], "lookahead_horizon");
-	napvigParams.algorithm = paramEnum<Napvig::AlgorithmType> (params["napvig"], "algorithm", {"single_step", "predict_collision"});
+	napvigParams.algorithm = paramEnum<Napvig::AlgorithmType> (params["napvig"], "algorithm", {"single_step", "randomized_recovery","optimized_trajectory"});
 	napvigParams.minDistance = paramDouble (params["napvig"],"min_distance");
 	napvigParams.scatterVariance = paramDouble (params["napvig"], "scatter_variance");
+	if (napvigParams.algorithm == Napvig::OPTIMIZED_TRAJECTORY) {
+		napvigParams.trajectoryOptimizerParams.rangeAngleMin = paramDouble (params["napvig"]["trajectory_optimizer"],"scan_range_min");
+		napvigParams.trajectoryOptimizerParams.rangeAngleMax = paramDouble (params["napvig"]["trajectory_optimizer"],"scan_range_max");
+		napvigParams.trajectoryOptimizerParams.rangeAngleStep = paramDouble (params["napvig"]["trajectory_optimizer"],"scan_range_step");
+	}
 
 	nodeParams.mapTestRangeMin = paramDouble (params["map_test"], "range_min");
 	nodeParams.mapTestRangeMax = paramDouble (params["map_test"], "range_max");
 	nodeParams.mapTestRangeStep = paramDouble (params["map_test"], "range_step");
-	nodeParams.drawWhat = paramEnum<TestDraw> (params["map_test"],"draw", {"none","value","grad"});
+	nodeParams.drawWhat = paramEnum<TestDraw> (params["map_test"],"draw", {"none","value","grad","minimal"});
 
 	napvig = new Napvig (mapParams, napvigParams);
 }
@@ -125,7 +130,7 @@ void NapvigNode::publishMeasures (const torch::Tensor &measures)
 
 void NapvigNode::publishValues ()
 {
-	if (!napvig->isMapReady () || nodeParams.drawWhat == TEST_DRAW_NONE)
+	if (!napvig->isMapReady () || nodeParams.drawWhat == TEST_DRAW_NONE || nodeParams.drawWhat == TEST_DRAW_MINIMAL)
 		return;
 
 	bool grad = (nodeParams.drawWhat == TEST_DRAW_GRAD);
@@ -183,6 +188,7 @@ void NapvigNode::publishControl ()
 {
 	if (!napvig->isReady ())
 		return;
+
 	geometry_msgs::Pose2D poseMsg;
 	torch::Tensor nextStep, nextBearing;
 
@@ -199,10 +205,11 @@ void NapvigNode::publishControl ()
 	publish ("setpoint_pub", poseMsg);
 }
 
-
-
 void NapvigNode::publishHistory ()
 {
+	if (nodeParams.drawWhat == TEST_DRAW_NONE)
+		return;
+
 	Napvig::SearchHistory searchHistory = napvig->getSearchHistory ();
 	napvig::SearchHistory searchHistoryMsg;
 
@@ -227,6 +234,8 @@ void NapvigNode::publishHistory ()
 
 		searchHistoryMsg.initialSearch.push_back (searchMsg);
 	}
+
+	searchHistoryMsg.chosen = searchHistory.chosen;
 
 	publish ("search_history_pub", searchHistoryMsg);
 }
