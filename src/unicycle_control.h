@@ -12,10 +12,18 @@
 
 class UnicycleControl : public Controller
 {
-	Pid pid;
+	int t;
+	double diffOld;
+	double derivLock;
+	double diffIntegr;
+
+	double updateDeriv (double diff);
+	double updateIntegr (double diff);
 
 public:
 	UnicycleControl ();
+
+	void setPid (const ControlParams &params);
 
 	void updateInput (const Eigen::VectorXd &state, const Eigen::VectorXd &ref = Eigen::VectorXd ());
 };

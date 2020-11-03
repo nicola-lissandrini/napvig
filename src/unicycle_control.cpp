@@ -13,7 +13,10 @@ using namespace Eigen;
 typedef complex<double> complexd;
 
 UnicycleControl::UnicycleControl():
-	Controller ()
+	Controller (),
+	t(0),
+	diffOld(0),
+	derivLock(0)
 {
 }
 
@@ -27,21 +30,43 @@ UnicycleControlNode::UnicycleControlNode ():
 }
 
 #define SETPOINT_SOURCE 1
+#define ORDER 5
+double UnicycleControl::updateDeriv (double diff)
+{
+	double derivNew = (diff - diffOld)/(ORDER * params.sampleTime);
+	diffOld = diff;
+	t = 0;
+	derivLock = derivNew;
+	return derivNew;
+}
+
+double UnicycleControl::updateIntegr (double diff) {
+	diffIntegr += diff * params.sampleTime;
+	return diffIntegr;
+}
 
 void UnicycleControl::updateInput (const VectorXd &state, const VectorXd &ref)
 {
 	const double kOmega = params["gains"][0];
 	const double kVMax = params["gains"][1];
 	const double scaleFactor = params["gains"][2];
+	const double kOmegaDeriv = params["gains"][3];
+	const double kOmegaInt = params["gains"][4];
 	const double targetTheta  = ref[2];
 
 	complexd b0 = polar (1.0, 0.0);
 	complexd b1 = polar (1.0, targetTheta);
 	complexd diff = log (b1 / b0);
-	const double omega = kOmega * imag (diff);
+	double angleDiff = imag(diff);
+
+	double deriv = kOmegaDeriv * updateDeriv (angleDiff);
+	double integr = kOmegaInt * updateIntegr (angleDiff);
+//	cout << "p " << kOmega * angleDiff << "\nd " << deriv << "\ni " << integr << endl;
+	double omega = kOmega * angleDiff + deriv + integr;
 
 	control[0] = kVMax * exp (-pow(omega,2)/(2* pow (M_PI * scaleFactor,2)));
 	control[1] = omega;
+	t++;
 }
 
 void UnicycleControlNode::initControl ()
@@ -52,7 +77,7 @@ void UnicycleControlNode::initControl ()
 	ctrlParams.stateSize = D_2D + D_2D; // x y th_w th_z
 	ctrlParams.controlSize = D_2D;
 
-	ctrlParams.sampleTime = 1 / rate->expectedCycleTime ().toSec ();
+	ctrlParams.sampleTime = rate->expectedCycleTime ().toSec ();
 
 	ctrlParams.params = {
 		{"gains", paramVector (params,"gains")}

@@ -15,6 +15,12 @@
 
 #include <complex>
 
+struct NapvigDebug
+{
+	std::vector<double> values;
+	torch::Tensor corridor;
+};
+
 class Napvig
 {
 public:
@@ -22,6 +28,10 @@ public:
 		torch::Tensor position;
 		torch::Tensor search;
 		bool randomized;
+
+		State clone () {
+			return State {position.clone (), search.clone()};
+		}
 	};
 
 	struct SearchHistory {
@@ -37,9 +47,8 @@ public:
 	};
 
 	enum NapvigMode {
-		FULLY_EXPLORATION,
-		FULLY_EXPLOITATION,
-		PARTIALLY_EXPLOITATION
+		EXPLORATION,
+		EXPLOITATION
 	};
 
 	struct Params {
@@ -50,6 +59,7 @@ public:
 		double scatterVariance;
 		int lookaheadHorizon;
 		int terminationCount;
+		bool keepLastSearch;
 		AlgorithmType algorithm;
 
 		struct {
@@ -61,6 +71,7 @@ public:
 
 private:
 	NapvigMap map;
+	NapvigDebug *debug;
 	Params params;
 	SearchHistory lastHistory;
 	ReadyFlags<std::string> flags, stateFlags;
@@ -92,7 +103,8 @@ private:
 
 public:
 	Napvig (const NapvigMap::Params &mapParams,
-			const Params &napvigParams);
+			const Params &napvigParams,
+			NapvigDebug *_debug);
 
 	State stepSingle (State initialState);
 	std::pair<State, SearchHistory> stepRandomizedRecovery(State initialState);
@@ -100,6 +112,7 @@ public:
 	bool step();
 
 	void setMeasures (const torch::Tensor &measures);
+	void setCorridor (const torch::Tensor &corridor);
 
 	double mapValue (const torch::Tensor &x) const;
 	torch::Tensor mapGrad (const torch::Tensor &x) const;
@@ -110,6 +123,7 @@ public:
 	void updateOrientation ();
 	void updateFrame (Frame newFrame);
 	void updateTarget (Frame newTargetFrame);
+	double getDistanceFromCorridor ();
 
 	bool isMapReady () const;
 	bool isReady () const;

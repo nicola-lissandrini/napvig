@@ -113,7 +113,7 @@ Tensor NapvigMap::value (const Tensor &x) const {
 	if (measures.size(0) == 0)
 		return torch::zeros ({1}, kDouble)[0];
 	else
-		return montecarlo (&NapvigMap::preSmooth, this, params.dim, params.precision, x, params.smoothRadius);
+		return montecarlo (&NapvigMap::preSmooth, this, params.dim, params.precision, x, params.smoothRadius, false);
 }
 
 #ifdef AUTOGRAD
@@ -146,7 +146,13 @@ Tensor NapvigMap::grad (const Tensor &x) const {
 	if (measures.size(0) == 0)
 		return torch::zeros ({2}, kDouble);
 	else
-		return montecarlo (&NapvigMap::preSmoothGrad, this, params.dim, params.precision, x.view({1,params.dim}), params.smoothRadius);
+		return montecarlo (&NapvigMap::preSmoothGrad,
+						   this,
+						   params.dim,
+						   params.precision,
+						   x.view({1,params.dim}),
+						   params.smoothRadius,
+						   true);
 }
 
 double NapvigMap::gammaDistance (double distance) const {

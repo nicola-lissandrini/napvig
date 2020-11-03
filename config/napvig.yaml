@@ -11,34 +11,40 @@ napvig:
       setpoint: /setpoint
       search_history: /search_history
   map:
-    measure_radius: 0.2
-    smooth_radius: 0.1
+    measure_radius: 0.3
+    smooth_radius: 0.05
     precision: 100
     dimensions: 2
   napvig:
-    step_ahead_size: 0.3
-    gradient_step_size: 0.3
-    termination_distance: 0.01
-    termination_count: 50
+    step_ahead_size: 0.2
+    gradient_step_size: 0.2
+    termination_distance: 0.001
+    termination_count: 40
     lookahead_horizon: 4
-    algorithm: optimized_trajectory # {optimized_trajectory, randomized_recovery, single_step}
+    algorithm: single_step # {optimized_trajectory, randomized_recovery, single_step}
     min_distance: 0.15
     scatter_variance: 1 # rad
+    keep_last_search: false
     trajectory_optimizer: # Only needed when optimized_trajectory algorithm is selected
       scan_range_min: rad(-pi)
       scan_range_max: rad(pi)
       scan_range_step: rad(pi/4)
   map_test:
-    range_min: -2.5
-    range_max: 2.5
-    range_step: 0.1
-    draw: minimal   # {none, value, grad, minimal}
+    range_min: -0.8
+    range_max: 0.8
+    range_step: 0.04
+    draw: none   # {none, value, grad, minimal}
 unicycle_control:
   rate: 100.0
   state_topic: /odom
   ref_topic: /setpoint
   command_topic: /cmd_vel
-  gains: [0.6, 0.2, 0.03]
+  gains:
+    - 1.8       # angular error gain P
+    - 0.3         # velocity error gain P
+    - 0.09        # velocity scale factor
+    - 0.0         # angular error gain D
+    - 0.00        # angular erro gain I
 fake_target:
   rate: 100
   turtle_odom: /odom

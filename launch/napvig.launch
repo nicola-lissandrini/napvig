@@ -1,11 +1,48 @@
 <?xml version="1.0"?>
 
 <launch>
-	<include file="$(find napvig)/launch/napvig_arena.launch" />
 
-	<rosparam command="load" file="$(find napvig)/config/napvig.yaml" />
+	<arg name="post" default="false" />
+	<arg name="walls" default="true" />
+	<arg name="replay" default="false" />
+	
 
-	<node type="napvig" name="napvig" pkg="napvig" output="screen" />
-	<node type="fake_target" name="fake_target" pkg="napvig" output="screen" />
-	<node type="unicycle_control" name="unicycle_control" pkg="napvig" output="screen" />
+	<group unless="$(arg replay)">
+		<include unless="$(arg post)" file="$(find napvig)/launch/napvig_arena.launch" />
+
+		<rosparam command="load" file="$(find corridor_raiser)/config/corridor_raiser.yaml" />
+		<node if="$(arg walls)" type="corridor_raiser_node" name="corridor_raiser" pkg="corridor_raiser" output="screen" respawn="true" />
+
+		<rosparam command="load" file="$(find napvig)/config/napvig.yaml" />
+
+		<node type="napvig" name="napvig" pkg="napvig" output="screen" />
+		<node type="fake_target" name="fake_target" pkg="napvig" output="screen" />
+		<node type="unicycle_control" name="unicycle_control" pkg="napvig" output="screen" />
+	</group>
+	<group if="$(arg replay)"> 
+		<!-- TEMPORANEO CANCELLAAAAAAA -->
+
+	  <include file="$(find gazebo_ros)/launch/empty_world.launch">
+	    <arg name="world_name" value="$(find turtlebot3_gazebo)/worlds/empty.world"/>
+	    <arg name="paused" value="false"/>
+	    <arg name="use_sim_time" value="true"/>
+	    <arg name="gui" value="true"/>
+	    <arg name="headless" value="false"/>
+	    <arg name="debug" value="true"/>
+	    <arg name="verbose" value="true"/>
+	  </include>
+
+	  <param name="robot_description" command="$(find xacro)/xacro --inorder $(find turtlebot3_description)/urdf/turtlebot3_waffle_nocontr.urdf.xacro" />
+
+	  <node pkg="gazebo_ros" type="spawn_model" name="spawn_urdf" args="-urdf -model turtlebot3_waffle -param robot_description" />
+		<param name="dynamic_corridor_visual_description" textfile="$(find corridor_raiser)/plugins/dynamic_corridor_visual.sdf" />
+
+		<node name="spawn_dynamic_corridor_visual" pkg="gazebo_ros" type="spawn_model"
+			args="-param dynamic_corridor_visual_description
+				  -sdf
+				  -model dynamic_corridor_visual"
+			respawn="false" output="screen" />
+
+		<node type="replay.py" name="reply" pkg="napvig" output="screen" />
+	</group>
 </launch>

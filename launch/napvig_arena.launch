@@ -1,10 +1,18 @@
 <?xml version="1.0"?>
 
 <launch>
-	<arg name="world" value="corridor" />
-	<include file="$(find turtlebot3_gazebo)/launch/turtlebot3_world.launch">
-		<arg name="model" value="waffle" />
+	<arg name="world" value="dynamic_corridor" />
+	<!--include file="$(find turtlebot3_gazebo)/launch/turtlebot3_empty_world.launch"-->
+	<include file="$(find gazebo_ros)/launch/empty_world.launch">
+	
+		<arg name="verbose" value="false" />
+		<arg name="paused" value="true" />
 	</include>
+
+	<param name="robot_description" command="$(find xacro)/xacro --inorder $(find turtlebot3_description)/urdf/turtlebot3_waffle.urdf.xacro" />
+
+	<node pkg="gazebo_ros" type="spawn_model" name="spawn_urdf" args="-urdf -model turtlebot3_waffle -param robot_description
+		laser_visual:=true" />
 
 	<group if="$(eval arg('world') == 'corridor')">
 		<param name="robot_description2" textfile="$(find napvig)/models/model.sdf" />
@@ -13,5 +21,22 @@
 	</group>
 	<group if="$(eval arg('world') == 'columns')">
 
+	</group>
+	<group if="$(eval arg('world') == 'dynamic_corridor')">
+		<param name="dynamic_corridor_visual_description" textfile="$(find corridor_raiser)/plugins/dynamic_corridor_visual.sdf" />
+
+		<node name="spawn_dynamic_corridor_visual" pkg="gazebo_ros" type="spawn_model"
+			args="-param dynamic_corridor_visual_description
+				  -sdf
+				  -model dynamic_corridor_visual"
+			respawn="false" output="screen" />
+	
+		<param name="dynamic_corridor_physics_description" textfile="$(find corridor_raiser)/plugins/dynamic_corridor_physics.sdf" />
+
+		<node name="spawn_dynamic_corridor_physics" pkg="gazebo_ros" type="spawn_model"
+			args="-param dynamic_corridor_physics_description
+				  -sdf
+				  -model dynamic_corridor_physics"
+			respawn="false" output="screen" />
 	</group>
 </launch>

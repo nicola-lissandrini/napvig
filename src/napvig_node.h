@@ -8,6 +8,7 @@
 
 #include <sensor_msgs/LaserScan.h>
 #include <nav_msgs/Odometry.h>
+#include <std_msgs/Float32MultiArray.h>
 
 #define NODE_NAME "napvig"
 
@@ -30,7 +31,10 @@ struct NapvigNodeParams {
 class NapvigNode : public SparcsNode
 {
 	Napvig *napvig;
+	NapvigDebug debug;
 	NapvigNodeParams nodeParams;
+	torch::Tensor worldPos, worldOrient;
+
 	struct {
 		torch::Tensor points;
 		int xySize;
@@ -48,11 +52,14 @@ class NapvigNode : public SparcsNode
 	void publishValues ();
 	void publishControl ();
 	void publishHistory();
+	void publishDebug();
 
 	void measuresCallback(const sensor_msgs::LaserScan &scanMsg);
 	void odomCallback (const nav_msgs::Odometry &odomMsg);
 	void targetCallback (const geometry_msgs::Pose &targetMsg);
+	void corridorCallback(const std_msgs::Float32MultiArray &corridorMsg);
 
+	void syncActions();
 public:
 	NapvigNode ();
 };

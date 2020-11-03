@@ -8,16 +8,18 @@ using namespace torch;
 using namespace torch::indexing;
 using namespace std;
 
-Napvig::Napvig (const NapvigMap::Params &mapParams, const Napvig::Params &napvigParams):
+Napvig::Napvig (const NapvigMap::Params &mapParams, const Napvig::Params &napvigParams, NapvigDebug *_debug):
 	map(mapParams),
 	params(napvigParams),
 	state{initialPosition, initialSearch},
+	debug(_debug),
 	mode(EXPLOITATION),
 	targetUnreachable(false)
 {
 	flags.addFlag ("first_measure", true);
 	flags.addFlag ("first_frame", true);
 	flags.addFlag ("first_target", true);
+	flags.addFlag ("first_corridor", true);
 	flags.addFlag ("new_measures");
 	flags.addFlag ("frame_updated");
 	flags.addFlag ("target_updated");
@@ -46,11 +48,14 @@ Tensor Napvig::projectOnto (const Tensor &space, const Tensor &vector) const {
 	return space.mm (space.t ()).mm (vector.unsqueeze (1)).squeeze ();
 }
 
+
 // Core algorithm
 Tensor Napvig::valleySearch (const Tensor &xStep, const Tensor &rSearch, int &num) const
 {
 	// Get basis orthonormal to direction
 	Tensor searchSpace = getBaseOrthogonal (rSearch);
+
+	debug->values.resize (0);
 
 	// Initial conditions
 	bool terminationCondition = false;
@@ -58,7 +63,6 @@ Tensor Napvig::valleySearch (const Tensor &xStep, const Tensor &rSearch, int &nu
 	Tensor gradProject;
 	int iterCount;
 
-	//cout << "Start" << endl;
 	for (iterCount = 0; !terminationCondition; iterCount++) {
 		Tensor gradCurr = map.grad (xCurr);
 
@@ -70,10 +74,14 @@ Tensor Napvig::valleySearch (const Tensor &xStep, const Tensor &rSearch, int &nu
 
 		double updateDistance = (xNext - xCurr).norm ().item ().toDouble ();
 
-		xCurr = xNext;
+		xCurr = xNext.clone ();
+
+		debug->values.push_back (gradProject.norm ().item().toDouble ());
 
 		terminationCondition = (updateDistance < params.terminationDistance) || (iterCount > params.terminationCount);
 	}
+
+	//cout << "Iter count " << iterCount << endl;
 
 	num = iterCount;
 	return xCurr;
@@ -233,8 +241,8 @@ pair<Napvig::State, Napvig::SearchHistory> Napvig::stepOptimizedTrajectory (Stat
 }
 
 void Napvig::keepLastSearch () {
-	oldState = state;
-	state.search = setpoint.search;
+	oldState = state.clone ();
+	state.search = setpoint.search.clone ();
 }
 
 bool Napvig::step ()
@@ -245,7 +253,6 @@ bool Napvig::step ()
 
 	updatePosition ();
 	updateOrientation ();
-
 
 	switch (params.algorithm) {
 	case SINGLE_STEP:
@@ -259,8 +266,10 @@ bool Napvig::step ()
 		break;
 	}
 
+
 	// Update last search direction as state
-	keepLastSearch ();
+	if (params.keepLastSearch)
+		keepLastSearch ();
 
 	flags.setProcessed ();
 
@@ -307,9 +316,18 @@ double Napvig::costDistanceToTarget (const Tensor &trajectory) const
 void Napvig::setMeasures (const Tensor &measures)
 {
 	map.setMeasures (measures);
+	state.search = initialSearch.clone ();
+	state.position = initialPosition.clone ();
 
 	flags.set ("first_measure");
 	flags.set ("new_measures");
+}
+
+void Napvig::setCorridor(const Tensor &corridor)
+{
+	debug->corridor = corridor;
+
+	flags.set ("first_corridor");
 }
 
 double Napvig::mapValue (const Tensor &x) const {
@@ -333,14 +351,14 @@ Napvig::SearchHistory Napvig::getSearchHistory() const {
 }
 
 void Napvig::updateOrientation () {
-	oldState = state;
+	oldState = state.clone ();
 	if (flags["frame_updated"]) {
 		state.search = frame.orientation.inv () * oldFrame.orientation * state.search;
 	}
 }
 
 void Napvig::updatePosition () {
-	oldState = state;
+	oldState = state.clone ();
 	if (flags["new_measures"]) {
 		// If measures have been update, reset the map
 		state.position = initialPosition.clone ();
@@ -354,8 +372,8 @@ void Napvig::updatePosition () {
 
 void Napvig::updateFrame (Frame newFrame)
 {
-	oldFrame = frame;
-	frame = newFrame;
+	oldFrame = frame.clone ();
+	frame = newFrame.clone ();
 
 	flags.set ("first_frame");
 	flags.set ("frame_updated");
@@ -367,6 +385,16 @@ void Napvig::updateTarget (Frame newTargetFrame)
 
 	flags.set ("first_target");
 	flags.set ("target_updated");
+}
+
+double Napvig::getDistanceFromCorridor()
+{
+	if (!flags["first_corridor"])
+		return NAN;
+
+	Tensor worldPos = frame.orientation * setpoint.position + frame.position;
+
+	return (worldPos.unsqueeze (0) - debug->corridor).norm (nullopt, 1).min ().item ().toDouble ();
 }
 
 bool Napvig::isMapReady() const {

@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 import rospy
 import numpy as np
@@ -8,10 +8,13 @@ import matplotlib.pyplot as plt
 
 grad_topic = "/grad_log"
 
+dim = 1
+
 class GradLogNode:
     def grad_callback (self, grad_log):
         self.grad_log = np.array (grad_log.data)
-        self.grad_log = np.reshape (self.grad_log, (grad_log.layout.dim[0].size, grad_log.layout.dim[1].size))
+        if (dim == 2):
+            self.grad_log = np.reshape (self.grad_log, (grad_log.layout.dim[0].size, grad_log.layout.dim[1].size))
 
         self.draw ()
 
@@ -32,8 +35,11 @@ class GradLogNode:
         if (self.grad_log is None):
             return
         self.fig.clear ()
-        plt.plot (self.grad_log[:,0])
-        plt.plot (self.grad_log[:,1])
+        if (dim == 2):
+            plt.plot (self.grad_log[:,0])
+            plt.plot (self.grad_log[:,1])
+        elif (dim == 1):
+            plt.plot (self.grad_log)
         plt.grid ()
         plt.draw ()
  

@@ -55,8 +55,15 @@ public:
 };
 
 template<class T>
-torch::Tensor montecarlo (torch::Tensor (T::*f)(const torch::Tensor &) const, const T *obj, int dim, int count, const torch::Tensor &center, double variance) {
-	torch::Tensor xEval = torch::rand ({count, dim}) * variance + center.expand ({count, dim});
+torch::Tensor montecarlo (torch::Tensor (T::*f)(const torch::Tensor &) const,
+						  const T *obj,
+						  int dim,
+						  int count,
+						  const torch::Tensor &center,
+						  double variance,
+						  bool debug) {
+	torch::Tensor xVar = at::normal (0.0,variance,{count,dim});
+	torch::Tensor xEval = xVar + center.expand ({count, dim});
 
 	return (obj->*f) (xEval).mean (0);
 }

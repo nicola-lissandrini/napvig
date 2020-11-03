@@ -21,8 +21,12 @@ class Rotation
 	Rotation (const Eigen::Quaterniond &otherQuaternion);
 public:
 	Rotation ();
+	Rotation (const Rotation &other) {
+		quaternion = other.quaternion;
+	}
 	// Tensor with order [x, y, z, w (real)], ROS convention
 	Rotation (const torch::Tensor &tensorQuaternion);
+
 	static Rotation fromAxisAngle (const torch::Tensor &axis, const torch::Tensor &angle);
 
 	Rotation operator * (const Rotation &other);
@@ -40,6 +44,14 @@ struct Frame
 {
 	Rotation orientation;
 	torch::Tensor position;
+	Frame () {position = torch::zeros ({2}, torch::kDouble);}
+	Frame (Rotation otherRotation, const torch::Tensor &otherPosition) {
+		orientation = otherRotation;
+		position = otherPosition;
+	}
+	Frame clone () {
+		return Frame(orientation, position.clone ());
+	}
 };
 
 std::ostream& operator<<(std::ostream &os, const Rotation &dt);

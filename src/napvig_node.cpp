@@ -1,6 +1,8 @@
 #include "napvig_node.h"
+#include "multi_array_manager.h"
 
 #include <std_msgs/Float64MultiArray.h>
+#include <std_msgs/Float64.h>
 #include <geometry_msgs/Pose2D.h>
 #include <nav_msgs/Path.h>
 #include <napvig/SearchHistory.h>
@@ -66,6 +68,7 @@ void NapvigNode::initParams ()
 	napvigParams.algorithm = paramEnum<Napvig::AlgorithmType> (params["napvig"], "algorithm", {"single_step", "randomized_recovery","optimized_trajectory"});
 	napvigParams.minDistance = paramDouble (params["napvig"],"min_distance");
 	napvigParams.scatterVariance = paramDouble (params["napvig"], "scatter_variance");
+	napvigParams.keepLastSearch = paramBool (params["napvig"],"keep_last_search");
 	if (napvigParams.algorithm == Napvig::OPTIMIZED_TRAJECTORY) {
 		napvigParams.trajectoryOptimizerParams.rangeAngleMin = paramDouble (params["napvig"]["trajectory_optimizer"],"scan_range_min");
 		napvigParams.trajectoryOptimizerParams.rangeAngleMax = paramDouble (params["napvig"]["trajectory_optimizer"],"scan_range_max");
@@ -77,20 +80,23 @@ void NapvigNode::initParams ()
 	nodeParams.mapTestRangeStep = paramDouble (params["map_test"], "range_step");
 	nodeParams.drawWhat = paramEnum<TestDraw> (params["map_test"],"draw", {"none","value","grad","minimal"});
 
-	napvig = new Napvig (mapParams, napvigParams);
+	napvig = new Napvig (mapParams, napvigParams, &debug);
 }
 
 void NapvigNode::initROS ()
 {
 	addSub ("measures_sub", paramString (params["topics"]["subs"],"scan"), 1, &NapvigNode::measuresCallback);
-	addSub ("odom_sub", paramString (params["topics"]["subs"], "odom"), 1, &NapvigNode::odomCallback);
+	addSub ("odom_sub", paramString (params["topics"]["subs"], "odom"), 5, &NapvigNode::odomCallback);
 	addSub ("target_sub", paramString (params["topics"]["subs"], "target"), 1, &NapvigNode::targetCallback);
+	addSub ("corridor_sub", "/corridor", 1, &NapvigNode::corridorCallback);
 
 	addPub<std_msgs::Float64MultiArray> ("measures_pub", paramString(params["topics"]["pubs"],"measures"),1);
 	addPub<std_msgs::Float64MultiArray> ("map_values_pub", paramString(params["topics"]["pubs"],"map_values"),1);
 	addPub<geometry_msgs::Pose2D> ("setpoint_pub", paramString(params["topics"]["pubs"],"setpoint"), 1);
 	addPub<std_msgs::Float64MultiArray> ("grad_log_pub","/grad_log", 1);
 	addPub<napvig::SearchHistory> ("search_history_pub", paramString (params["topics"]["pubs"],"search_history"), 1);
+	addPub<geometry_msgs::Pose2D> ("world_setpoint_pub","/setpoint_world", 1);
+	addPub<std_msgs::Float64> ("corridor_distance_pub","/corridor_distance", 1);
 }
 
 Tensor polar2rectangularMeasure (double radius, double angle) {
@@ -165,18 +171,35 @@ void NapvigNode::publishValues ()
 	publish ("map_values_pub", mapValuesMsg);
 }
 
+void NapvigNode::corridorCallback (const std_msgs::Float32MultiArray &corridorMsg)
+{
+	MultiArray32Manager array(corridorMsg);
+	torch::Tensor corridorTensor;
+
+	corridorTensor = torch::zeros ({array.size (0), array.size (1)}, kDouble);
+
+	for (int i = 0; i < array.size (0); i++)
+		for (int j = 0; j < array.size (1); j++)
+			corridorTensor[i][j] = array.get ({i,j});
+	napvig->setCorridor (corridorTensor);
+}
+
 void NapvigNode::measuresCallback (const sensor_msgs::LaserScan &scanMsg)
 {
 	torch::Tensor newMeasures = convertScanMsg (scanMsg);
 
 	napvig->setMeasures (newMeasures);
 	publishMeasures (newMeasures);
-
 }
 
 void NapvigNode::odomCallback (const nav_msgs::Odometry &odomMsg) {
 	napvig->updateFrame (Frame{Rotation (quaternionMsgToTorch (odomMsg.pose.pose.orientation)),
 							   pointMsgToTorch (odomMsg.pose.pose.position).slice (0,0,2)});
+	worldPos = torch::tensor ({odomMsg.pose.pose.position.x,
+							  odomMsg.pose.pose.position.y},kDouble);
+	worldOrient = quaternionMsgToTorch (odomMsg.pose.pose.orientation);
+
+	syncActions ();
 }
 
 void NapvigNode::targetCallback (const geometry_msgs::Pose &targetMsg) {
@@ -189,11 +212,15 @@ void NapvigNode::publishControl ()
 	if (!napvig->isReady ())
 		return;
 
-	geometry_msgs::Pose2D poseMsg;
-	torch::Tensor nextStep, nextBearing;
+	geometry_msgs::Pose2D poseMsg, worldPoseMsg;
+	torch::Tensor nextStep, nextBearing, worldStep;
 
-	if (!napvig->step ())
+	if (!napvig->step ()) {
+		ROS_ERROR ("NO STEP");
 		return;
+	} else {
+		ROS_INFO ("YES STEP");
+	}
 
 	nextStep = napvig->getSetpointPosition ();
 	nextBearing = napvig->getSetpointDirection ();
@@ -201,13 +228,40 @@ void NapvigNode::publishControl ()
 	poseMsg.x = nextStep[0].item ().toDouble ();
 	poseMsg.y = nextStep[1].item ().toDouble ();
 	poseMsg.theta = atan2 (poseMsg.y, poseMsg.x);
+	worldStep = nextStep + worldPos;
+
+
+	/************************************
+	 * TACCONE INCREDIBILE CORREGGERE ASAP
+	 * SE NON LO FAI GUARDA TI AMMAZZO MALE
+	 * *********************************/
+	Eigen::Vector3d pos3d, worldFrameTot;
+	Eigen::Quaterniond quat(worldOrient[3].item().toDouble (),
+			worldOrient[0].item().toDouble (),
+			worldOrient[1].item().toDouble (),
+			worldOrient[2].item().toDouble ());
+	pos3d << nextStep[0].item ().toDouble (), nextStep[1].item ().toDouble (), 0;
+	worldFrameTot = quat * pos3d + Eigen::Vector3d(worldPos[0].item ().toDouble (), worldPos[1].item ().toDouble (),0);
+
+	worldPoseMsg.x = worldFrameTot[0];
+	worldPoseMsg.y = worldFrameTot[1];
+
+	/************************************
+	 * FINE TACCONE INCREDIBILE
+	 * *********************************/
+	double corridorDistance = napvig->getDistanceFromCorridor ();
+	std_msgs::Float64 corridorDistanceMsg;
+
+	corridorDistanceMsg.data = corridorDistance;
 
 	publish ("setpoint_pub", poseMsg);
+	publish ("world_setpoint_pub", worldPoseMsg);
+	publish ("corridor_distance_pub", corridorDistanceMsg);
 }
 
 void NapvigNode::publishHistory ()
 {
-	if (nodeParams.drawWhat == TEST_DRAW_NONE)
+	if (nodeParams.drawWhat == TEST_DRAW_NONE )
 		return;
 
 	Napvig::SearchHistory searchHistory = napvig->getSearchHistory ();
@@ -240,11 +294,30 @@ void NapvigNode::publishHistory ()
 	publish ("search_history_pub", searchHistoryMsg);
 }
 
-int NapvigNode::actions ()
+void NapvigNode::publishDebug ()
 {
+	std_msgs::Float64MultiArray msg;
+
+	msg.layout.dim.resize (1);
+	msg.layout.dim[0].size = debug.values.size ();
+
+	msg.data = debug.values;
+
+	publish ("grad_log_pub", msg);
+}
+
+void NapvigNode::syncActions () {
+	double val;
+	PROFILE (val,[&]{
 	publishValues ();
 	publishControl ();
 	publishHistory ();
+	publishDebug ();
+	});
+}
+
+int NapvigNode::actions ()
+{
 
 	return 0;
 }
