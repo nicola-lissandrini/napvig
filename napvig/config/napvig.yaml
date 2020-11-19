@@ -1,0 +1,25 @@
+napvig:
+  rate: 100
+  synchronous: false
+  algorithm: napvig_legacy
+  landscape:
+    measure_radius: 0.3
+    smooth_radius: 0.05
+    precision: 100
+    dimensions: 2
+    min_distance: 0.15
+  napvig:
+    core:
+      step_ahead_size: 0.2
+      gradient_step_size: 0.2
+      termination_distance: 0.001
+      termination_count: 40
+  debug:
+    landscape_test:
+      range_min: -0.8
+      range_max: 0.8
+      range_step: 0.04
+      draw: none   # {none, value, grad}
+    publish_measures: true
+    publish_history: false
+

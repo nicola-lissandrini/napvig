@@ -1,0 +1,14 @@
+<?xml version="1.0"?>
+
+<launch>
+	<!-- Napvig core -->
+	<rosparam command="load" file="$(find napvig)/config/napvig.yaml" />
+	<node type="napvig" name="napvig" pkg="napvig" output="screen" />
+
+
+	<!-- Napvig-X -->
+	<!--node type="fake_target" name="fake_target" pkg="napvig" output="screen" /-->
+
+	<!-- Vehicle control -->
+	<include file="$(find unicycle_control)/launch/unicycle_control.launch" />
+</launch>

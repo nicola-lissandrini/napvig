@@ -1,0 +1,20 @@
+#ifndef NAPVIG_MANAGER_H
+#define NAPVIG_MANAGER_H
+
+#include "napvig.h"
+
+class NapvigManager
+{
+	ReadyFlags<std::string> flags;
+	std::shared_ptr<Napvig> napvig;
+	
+public:
+	NapvigManager ();
+	
+	void reinit (std::shared_ptr<Landscape::Params> &landscapeParams,
+				 std::shared_ptr<Napvig::Params> &napvigParams);
+	
+	
+};
+
+#endif // NAPVIG_MANAGER_H

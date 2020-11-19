@@ -1,0 +1,25 @@
+napvig:
+  topics:
+    napvig_core:
+      subs:
+        scan: /turtlebot/scan
+        odom: /turtlebot/odom
+      pubs:
+        command: /napvig/setpoint
+    napvig_x:
+      subs:
+        target: /target_detector/target_body
+    debug:
+      pubs:
+        measures: /napvig/debug/measures
+        landscape_values: /napvig/debug/landscape_values
+        generic_vector: /napvig/debug/generic_vector
+        search_history: /napvig/debug/search_history
+unicycle_control:
+  state_topic: /turtlebot/odom
+  command_topic: /turtlebot/cmd_vel
+  ref_topic: /napvig/setpoint
+corridor_raiser:
+  wall_topic_pub: /corridor_raiser/walls
+  corridor_topic_pub: /corridor_raiser/corridor
+  odom_topic_sub: /turtlebot/odom

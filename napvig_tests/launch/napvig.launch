@@ -1,0 +1,13 @@
+<?xml version="1.0"?>
+
+<launch>
+	<arg name="scenario" value="corridor_raiser" />
+
+	<!-- Configure ROS topics configuration -->
+	<rosparam command="load" file="$(find napvig_tests)/config/ros_configuration.yaml" />
+
+	<include file="$(find napvig_tests)/launch/arena_sim.launch">
+		<arg name="scenario" value="$(arg scenario)"/>
+	</include>
+	<include file="$(find napvig)/launch/napvig.launch" />
+</launch>

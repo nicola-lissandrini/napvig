@@ -1,0 +1,23 @@
+<?xml version="1.0"?>
+
+<launch>
+	<arg name="scenario" />
+
+	<include file="$(find gazebo_ros)/launch/empty_world.launch">
+		<arg name="verbose" value="false" />
+		<arg name="paused" value="false" />
+	</include>
+
+	<!-- Spawn vehicle -->
+	<group ns="turtlebot">
+		<param name="vehicle_description"  command="$(find xacro)/xacro $(find turtlebot3_description)/urdf/turtlebot3_waffle.urdf.xacro" />
+
+		<node pkg="gazebo_ros" type="spawn_model" name="spawn_vehicle"
+			args="-urdf
+				  -model turtlebot3_waffle
+				  -param vehicle_description" />
+	</group>
+
+	<!-- Scenario: corridor_raiser -->
+	<include if="$(eval arg('scenario') == 'corridor_raiser')" file="$(find corridor_raiser)/launch/corridor_raiser.launch" />
+</launch>
