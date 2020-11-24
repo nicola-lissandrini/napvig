@@ -14,8 +14,8 @@ using namespace std;
  * Main method: State compute (State q)
  * *******************/
 
-Napvig::Core::Core(Params _params, Landscape &parentLandscape):
-	params(_params),
+Napvig::Core::Core(const Params &_params, Landscape &parentLandscape):
+	paramsData(_params),
 	landscape(parentLandscape)
 {}
 
@@ -132,12 +132,12 @@ Napvig::State Napvig::FramesTracker::toMeasuresFrame (const State &stateOdom) {
  * *******************/
 
 Napvig::Napvig (Napvig::AlgorithmType _type,
-				const Landscape::Params &landscapeParams,
-				const Napvig::Params &napvigParams):
+				const std::shared_ptr<Landscape::Params> &landscapeParams,
+				const shared_ptr<Napvig::Params> &napvigParams):
 	type(_type),
 	landscape(landscapeParams),
-	params(napvigParams),
-	core(napvigParams, landscape)
+	paramsData(napvigParams),
+	core(*napvigParams, landscape)
 {
 	debug = make_shared<NapvigDebug> (shared_ptr<Landscape> (&landscape));
 }

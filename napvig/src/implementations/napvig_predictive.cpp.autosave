@@ -5,19 +5,12 @@ using namespace torch;
 
 NapvigPredictive::NapvigPredictive (AlgorithmType type,
 									const shared_ptr<Landscape::Params> &landscapeParams,
-									const shared_ptr<NapvigPredictive::Params> &predictiveParams):
+									const shared_ptr<Napvig::Params> &napvigParams):
 	Napvig (type,
 			landscapeParams,
-			predictiveParams.napvigParams),
-	params(predictiveParams)
+			napvigParams),
+	params(napvigParams)
 {
-	flags.addFlag ("first_policy_set", true);
-}
-
-void NapvigPredictive::setPolicy(std::shared_ptr<Policy> _policy)
-{
-	policy = _policy;
-	flags.set("first_policy");
 }
 
 pair<Napvig::Trajectory, Policy::Termination> NapvigPredictive::predictTrajectory (const Napvig::State &initialState, const shared_ptr<Policy> &policy)
@@ -44,18 +37,15 @@ pair<Napvig::Trajectory, Policy::Termination> NapvigPredictive::predictTrajector
 	return {predicted, condition};
 }
 
-boost::optional<Napvig::Trajectory> NapvigPredictive::trajectoryAlgorithm (const State &initialState)
+boost::optional<Napvig::Trajectory> NapvigPredictive::trajectoryAlgorithm (const State &initialState, const std::shared_ptr<Policy> &policy)
 {
-	if (!isReady ())
-		return boost::none;
-
 	Napvig::Trajectory trajectory;
 	Policy::Termination termination;
 
 	// Initialize policy if needed
 	policy->init ();
 
-	// Until a trajectory is selected
+	// Until a trajectory is selected..
 	do {
 		// Get initial search according to policy
 		Tensor firstSearch = policy->getFirstSearch (initialState);
