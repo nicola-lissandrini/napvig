@@ -15,6 +15,10 @@
 
 #include <optional>
 
+struct Range {
+	double min, max, step;
+};
+
 struct NapvigDebug
 {
 	const std::shared_ptr<Landscape> landscape;
@@ -85,6 +89,11 @@ protected:
 		State compute (const State &q) const;
 	} core;
 
+	const State zeroState = {torch::zeros ({2}, torch::kDouble), torch::tensor ({1.0, 0.0}, torch::kDouble)};
+
+	virtual boost::optional<Trajectory> trajectoryAlgorithm (const State &initialState) = 0;
+
+private:
 	// Track openloop odometry frame update
 	class FramesTracker {
 		ReadyFlags<std::string> flags;
@@ -97,10 +106,6 @@ protected:
 		bool isReady () const;
 		State toMeasuresFrame (const State &stateOdom);
 	} framesTracker;
-	
-	const State zeroState = {torch::zeros ({2}, torch::kDouble), torch::tensor ({1.0, 0.0}, torch::kDouble)};
-
-	virtual boost::optional<Trajectory> trajectoryAlgorithm (const State &initialState) = 0;
 
 public:
 	Napvig (AlgorithmType _type,

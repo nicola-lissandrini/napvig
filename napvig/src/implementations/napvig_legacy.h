@@ -8,8 +8,8 @@ class NapvigLegacy : public Napvig
 	boost::optional<Trajectory> trajectoryAlgorithm (const State &zeroState);
 
 public:
-	NapvigLegacy(Landscape::Params &landscapeParams,
-				 Napvig::Params &napvigParams);
+	NapvigLegacy(const Landscape::Params &landscapeParams,
+				 const Napvig::Params &napvigParams);
 
 
 };

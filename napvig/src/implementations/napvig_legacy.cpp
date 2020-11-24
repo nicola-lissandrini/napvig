@@ -8,7 +8,7 @@ using namespace torch;
 using namespace torch::indexing;
 using namespace std;
 
-NapvigLegacy::NapvigLegacy(Landscape::Params &landscapeParams, Napvig::Params &napvigParams):
+NapvigLegacy::NapvigLegacy(const Landscape::Params &landscapeParams, const Params &napvigParams):
 	Napvig(NAPVIG_LEGACY,
 		   landscapeParams,
 		   napvigParams)
