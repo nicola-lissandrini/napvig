@@ -41,7 +41,7 @@ public:
 		torch::Tensor position;
 		torch::Tensor search;
 
-		State clone () {
+		State clone () const {
 			return State {position.clone (), search.clone()};
 		}
 	};
@@ -68,11 +68,11 @@ public:
 		virtual ~Params() = default;
 	};
 
+protected:
 	std::shared_ptr<Params> paramsData;
 
-protected:
 	// Allow params inheritance
-	const Params &params () {
+	const Params &params () const {
 		return *paramsData;
 	}
 
@@ -85,7 +85,7 @@ protected:
 
 	// Main algorithm
 	class Core {
-		const Params &paramsData;
+		const Params &params;
 		Landscape &landscape;
 
 		torch::Tensor projectOnto (const torch::Tensor &space, const at::Tensor &vector) const;

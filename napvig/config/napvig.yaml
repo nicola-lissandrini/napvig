@@ -1,7 +1,7 @@
 napvig:
   rate: 100
   synchronous: false
-  algorithm: napvig_legacy
+  algorithm: napvig_randomized
   landscape:
     measure_radius: 0.3
     smooth_radius: 0.05
@@ -14,6 +14,10 @@ napvig:
       gradient_step_size: 0.2
       termination_distance: 0.001
       termination_count: 40
+    predictive:
+      window_length: 5
+      randomized:
+        randomize_variance: 1
   debug:
     landscape_test:
       range_min: -0.8

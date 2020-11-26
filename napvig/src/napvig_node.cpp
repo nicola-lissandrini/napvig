@@ -71,6 +71,7 @@ void NapvigNode::initROS ()
 
 	switch (napvigHandler.getType ()) {
 	case Napvig::NAPVIG_LEGACY:
+	case Napvig::NAPVIG_RANDOMIZED:
 		// Nothing to add
 		break;
 	case Napvig::NAPVIG_X:

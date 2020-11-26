@@ -44,8 +44,8 @@ private:
 	torch::Tensor normSquare (const torch::Tensor &x) const;
 	double gammaDistance (double distance) const;
 
-	const Params &params () {
-		return *dynamic_pointer_cast<Params> (paramsData);
+	const Params &params () const {
+		return *std::dynamic_pointer_cast<Params> (paramsData);
 	}
 public:
 	Landscape (const std::shared_ptr<Params> &_params);

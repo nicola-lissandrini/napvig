@@ -58,7 +58,7 @@ Tensor Landscape::gaussian(const Tensor &x, double sigma) const {
 #endif
 
 Tensor Landscape::gamma(const Tensor &x) const {
-	return gaussian (x - measures, params()().measureRadius);
+	return gaussian (x - measures, params().measureRadius);
 }
 
 Tensor Landscape::normSquare (const Tensor &x) const {

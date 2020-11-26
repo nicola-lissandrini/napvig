@@ -3,6 +3,7 @@
 
 #include "napvig.h"
 #include "implementations/napvig_legacy.h"
+#include "implementations/napvig_randomized.h"
 #include <xmlrpcpp/XmlRpc.h>
 
 class Measures
@@ -28,25 +29,50 @@ class NapvigHandler
 {
 	struct Params {
 		bool synchronous;
-	} handlerParams;
+	};
+
+	std::shared_ptr<Params> paramsData;
 
 	ReadyFlags<std::string> flags;
 	std::shared_ptr<Napvig> napvig;
 	std::shared_ptr<NapvigDebug> debug;
 	CommandPublisher commandPublisherCallback;
 
-	Landscape::Params getLandscapeParams (XmlRpc::XmlRpcValue &handlerParams);
-	Napvig::Params getNapvigParams (XmlRpc::XmlRpcValue &handlerParams);
-	Params getNapvigHandlerParams (XmlRpc::XmlRpcValue &handlerParams);
+	std::shared_ptr<Landscape::Params> getLandscapeParams (XmlRpc::XmlRpcValue &xmlParams);
+
+	class GetNapvigParams {
+		XmlRpc::XmlRpcValue &xmlParams;
+		std::shared_ptr<Napvig::Params> params;
+
+		void addCore ();
+		void addPredictive ();
+		void addRandomized ();
+
+	public:
+		GetNapvigParams (XmlRpc::XmlRpcValue &_xmlParams);
+
+		std::shared_ptr<Napvig::Params> legacy ();
+		std::shared_ptr<NapvigRandomized::Params> randomized ();
+	};
+
+	std::shared_ptr<Napvig::Params> addNapvigParams (const std::shared_ptr<Napvig::Params> &napvigParams, XmlRpc::XmlRpcValue &xmlParams);
+	std::shared_ptr<NapvigPredictive::Params> addNapvigPredictiveParams (const std::shared_ptr<Napvig::Params> &napvigParams, XmlRpc::XmlRpcValue &xmlParams);
+
+	std::shared_ptr<Params> getNapvigHandlerParams (XmlRpc::XmlRpcValue &xmlParams);
+	std::shared_ptr<NapvigRandomized::Params> getNapvigRandomizedParams (XmlRpc::XmlRpcValue &xmlParams);
 
 	void dispatchCommand ();
 	boost::optional<torch::Tensor> getCommand();
+
+	const Params &params() {
+		return *paramsData;
+	}
 
 public:
 	NapvigHandler (CommandPublisher _commandPublisherCallback);
 
 	void init (Napvig::AlgorithmType type,
-			   XmlRpc::XmlRpcValue &handlerParams);
+			   XmlRpc::XmlRpcValue &xmlParams);
 
 	int synchronousActions ();
 	void updateMeasures (std::shared_ptr<Measures> measures);

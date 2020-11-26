@@ -15,7 +15,7 @@ using namespace std;
  * *******************/
 
 Napvig::Core::Core(const Params &_params, Landscape &parentLandscape):
-	paramsData(_params),
+	params(_params),
 	landscape(parentLandscape)
 {}
 

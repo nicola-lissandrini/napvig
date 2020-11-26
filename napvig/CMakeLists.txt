@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 2.8.3)
 project(napvig)
 
 add_compile_options(-std=c++14)
-#set(CMAKE_PREFIX_PATH "$CMAKE_PREFIX_PATH:/opt/libtorch/share/cmake/Torch")
+set(Torch_DIR "/opt/libtorch/share/cmake/Torch")
 
 set(EIGEN3_INCLUDE_DIR /usr/include/eigen3)
 set(USE_CUDA 0)
@@ -48,7 +48,9 @@ add_executable (napvig
 	src/napvig.cpp
 	src/landscape.cpp
 	src/rotation.cpp
-	src/implementations/napvig_legacy.cpp)
+        src/implementations/napvig_legacy.cpp
+	   src/implementations/napvig_predictive.cpp
+        src/implementations/napvig_randomized.cpp)
 target_link_libraries (napvig ${catkin_LIBRARIES} ${TORCH_LIBRARIES} sparcsnode systems_lib)
 add_dependencies(napvig ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 

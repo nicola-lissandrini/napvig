@@ -3,11 +3,19 @@
 
 #include "../napvig.h"
 
-class Policy
+// Workaround for NapvigPredictive::Params forward declaration
+template<class ParamsAbstract>
+class PolicyAbstract
 {
+
 protected:
-	const std::shared_ptr<const Landscape &> landscape;
+	std::shared_ptr<ParamsAbstract> paramsData;
+	const std::shared_ptr<Landscape> landscape;
 	ReadyFlags<std::string> flags;
+
+	const ParamsAbstract &params() const {
+		return *std::dynamic_pointer_cast<const ParamsAbstract> (paramsData);
+	}
 
 public:
 	enum Termination {
@@ -17,10 +25,16 @@ public:
 		PREDICTION_TERMINATION_TARGET_REACHED
 	};
 
-	Policy (const std::shared_ptr<Landscape> &_landscape);
+	PolicyAbstract (const std::shared_ptr<Landscape> &_landscape,
+					const std::shared_ptr<ParamsAbstract> &_params):
+		landscape(_landscape),
+		paramsData(_params)
+	{
+		flags.addFlag ("no_trajectory");
+	}
 
 	virtual void init () {}
-	virtual boost::optional<torch::Tensor> getFirstSearch (const Napvig::State &initialState) = 0;
+	virtual torch::Tensor getFirstSearch (const Napvig::State &initialState) = 0;
 	virtual torch::Tensor getNextSearch (const Napvig::Trajectory &trajectory) = 0;
 	virtual Termination terminationCondition (const Napvig::Trajectory &trajectory) = 0;
 	virtual bool selectTrajectory (const Napvig::Trajectory &trajectory, Termination termination) = 0;
@@ -29,43 +43,5 @@ public:
 	}
 };
 
-/***************
- * Go straight with the direction computed by Napvig core
- * *************/
-
-class SearchStraightPolicy : public virtual Policy
-{
-public:
-	torch::Tensor getNextSearch (const Napvig::Trajectory &trajectory);
-};
-
-/***************
- * Define collision or max window termination condition
- * *************/
-
-class CollisionTerminatedPolicy : public virtual Policy
-{
-public:
-	struct Params {
-		int windowLength;
-	};
-	
-private:
-	Params params;
-	
-public:
-	CollisionTerminatedPolicy (const Params &_params);
-	Termination terminationCondition (const Napvig::Trajectory &trajectory);
-};
-
-/***************
- * Follow napvig core directions until collision or max window reached
- * ************/
-
-class StartDrivenPolicy : public SearchStraightPolicy, public CollisionTerminatedPolicy
-{
-public:
-	StartDrivenPolicy (int _windowLength);
-};
 
 #endif // POLICY_H
