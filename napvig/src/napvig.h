@@ -19,20 +19,7 @@ struct Range {
 	double min, max, step;
 };
 
-struct NapvigDebug
-{
-	const std::shared_ptr<Landscape> landscape;
-	std::vector<float> values;
-	torch::Tensor debugTensor;
-
-	struct SearchHistory {
-		std::vector<torch::Tensor> triedPaths;
-		std::vector<torch::Tensor> initialSearches;
-		int chosen;
-	} history;
-
-	NapvigDebug (const std::shared_ptr<Landscape> &_landscape);
-};
+struct NapvigDebug;
 
 class Napvig
 {
@@ -132,9 +119,26 @@ public:
 
 	bool isReady () const;
 	AlgorithmType getType () const;
+	torch::Tensor getZero () const;
 };
 
+struct NapvigDebug
+{
+	const std::shared_ptr<Landscape> landscape;
+	std::vector<float> values;
+	torch::Tensor debugTensor;
 
+	struct SearchHistory {
+		std::vector<torch::Tensor> triedPaths;
+		std::vector<torch::Tensor> initialSearches;
+		int chosen;
+
+		void reset ();
+		void add (const Napvig::Trajectory &path);
+	} history;
+
+	NapvigDebug (const std::shared_ptr<Landscape> &_landscape);
+};
 
 
 

@@ -1,5 +1,5 @@
 corridor_raiser:
-  rate: 15
+  rate: 1
   average_corridor_width: 0.26
   wall_thickness: 0.03
   keypoints_count: 5

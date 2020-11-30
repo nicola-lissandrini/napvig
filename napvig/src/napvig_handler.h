@@ -29,6 +29,7 @@ class NapvigHandler
 {
 	struct Params {
 		bool synchronous;
+		bool stopOnFail;
 	};
 
 	std::shared_ptr<Params> paramsData;

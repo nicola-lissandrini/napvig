@@ -10,6 +10,7 @@ class NapvigRandomized : public NapvigPredictive
 public:
 	struct Params : NapvigPredictive::Params {
 		double randomizeVariance;
+		int maxTrials;
 	};
 
 private:
@@ -30,6 +31,8 @@ public:
 class RandomizePolicy : public SearchStraightPolicy, public CollisionTerminatedPolicy
 {
 	torch::Tensor lastSearch;
+	int trials;
+	bool first;
 
 	torch::Tensor randomize (const torch::Tensor &search);
 
@@ -42,7 +45,7 @@ public:
 
 	void init ();
 	torch::Tensor getFirstSearch (const Napvig::State &initialState);
-	bool selectTrajectory (const Napvig::Trajectory &trajectory, Termination termination);
+	bool processTrajectory (const Napvig::Trajectory &trajectory, Termination termination);
 };
 
 #endif // NAPVIG_RANDOMIZED_H

@@ -63,7 +63,8 @@ shared_ptr<NapvigHandler::Params> NapvigHandler::getNapvigHandlerParams (XmlRpcV
 {
 	shared_ptr<Params> handlerParams = make_shared<Params> ();
 
-	handlerParams->synchronous = paramBool (xmlParams,"synchronous");
+	handlerParams->synchronous = paramBool (xmlParams, "synchronous");
+	handlerParams->stopOnFail = paramBool (xmlParams, "stop_on_fail");
 
 	return handlerParams;
 }
@@ -88,6 +89,7 @@ void NapvigHandler::GetNapvigParams::addRandomized()
 	shared_ptr<NapvigRandomized::Params> randomizedParams = dynamic_pointer_cast<NapvigRandomized::Params> (params);
 
 	randomizedParams->randomizeVariance = paramDouble (xmlParams["predictive"]["randomized"], "randomize_variance");
+	randomizedParams->maxTrials = paramDouble (xmlParams["predictive"]["randomized"], "max_trials");
 }
 
 NapvigHandler::GetNapvigParams::GetNapvigParams (XmlRpcValue &_xmlParams):
@@ -148,6 +150,8 @@ void NapvigHandler::dispatchCommand ()
 
 	if (command)
 		commandPublisherCallback (command.value ());
+	else if (params().stopOnFail)
+		commandPublisherCallback (napvig->getZero ());
 }
 
 boost::optional<torch::Tensor> NapvigHandler::getCommand ()
@@ -157,7 +161,8 @@ boost::optional<torch::Tensor> NapvigHandler::getCommand ()
 
 	if (trajectory)
 		// Get first trajectory position sample
-		command = trajectory->at (0).position;
+		// (n. 0 is the initial state)
+		command = trajectory->at (1).position;
 
 	return command;
 }

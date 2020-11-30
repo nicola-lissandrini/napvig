@@ -14,12 +14,12 @@ import os
 meas_topic = "/napvig/debug/measures"
 map_topic = "/napvig/debug/landscape_values"
 setpt_topic = "/napvig/setpoint"
-history_topic = "/search_history"
+history_topic = "/napvig/debug/search_history"
 target_body_topic = "/target_body"
 grad = False
 save_replay = False
-minimal = False
-hist = False
+minimal = True
+hist = True
 
 def handle_close (fig):
     quit ()
@@ -93,7 +93,7 @@ class DisplayNode:
     def draw_history (self):
         #self.history = SearchHistory ()
         j = 0
-        
+        print ("len %d"%(len(self.history.triedPaths)))
         for curr_path in self.history.triedPaths:
             last_pos = Vector3 ()
             #self.draw_turtle (last_pos, self.history.initialSearch[j])
@@ -149,6 +149,7 @@ class DisplayNode:
         self.draw_turtle (pos_zero, setpt_zero, arrow_color="g")
 
         if (hist):
+            print ("draw hist")
             self.draw_history ()
         
         plt.scatter (self.target.x, self.target.y, 10.1, "r")
@@ -157,6 +158,7 @@ class DisplayNode:
         plt.grid ()
         plt.gca().set_xlim (-2.5, 2.5)
         plt.gca().set_aspect('equal', adjustable='box')
+        print ("quaaa")
         plt.draw ()
         if (save_replay):
             plt.savefig ("replays/{0:04d}.png".format (self.frame_no),  bbox_inches='tight', pad_inches=0)

@@ -12,19 +12,22 @@ NapvigRandomized::NapvigRandomized (const shared_ptr<Landscape::Params> &_landsc
 	randomizePolicy = make_shared <RandomizePolicy> (shared_ptr<Landscape> (&landscape), _params);
 }
 
-boost::optional<Napvig::Trajectory> NapvigRandomized::trajectoryAlgorithm(const Napvig::State &initialState) {
+boost::optional<Napvig::Trajectory> NapvigRandomized::trajectoryAlgorithm (const Napvig::State &initialState) {
 	return followPolicy (initialState, randomizePolicy);
 }
 
 RandomizePolicy::RandomizePolicy (const std::shared_ptr<Landscape> _landscape,
 								  const std::shared_ptr<NapvigRandomized::Params> &_params):
-	Policy(_landscape, _params)
+	Policy(_landscape, _params),
+	first(false)
 {
-	flags.addFlag ("first", false, true);
 }
 
-void RandomizePolicy::init () {
-	flags.set ("first");
+void RandomizePolicy::init ()
+{
+	trials = 0;
+	index = 0;
+	first = true;
 }
 
 Tensor RandomizePolicy::randomize (const torch::Tensor &search)
@@ -37,10 +40,10 @@ Tensor RandomizePolicy::randomize (const torch::Tensor &search)
 
 Tensor RandomizePolicy::getFirstSearch (const Napvig::State &initialState)
 {
-	if (flags["first"]) {
-		flags.reset ("first");
-
+	if (first) {
+		first = false;
 		lastSearch = initialState.search;
+
 		return lastSearch;
 	}  else {
 		lastSearch = randomize (lastSearch);
@@ -49,6 +52,25 @@ Tensor RandomizePolicy::getFirstSearch (const Napvig::State &initialState)
 	}
 }
 
-bool RandomizePolicy::selectTrajectory (const Napvig::Trajectory &trajectory, Termination termination) {
-	return (termination != PREDICTION_TERMINATION_COLLISION);
+bool RandomizePolicy::processTrajectory (const Napvig::Trajectory &trajectory, Termination termination)
+{
+	bool trialsExceeded = trials >= params().maxTrials;
+
+	if (termination == PREDICTION_TERMINATION_MAX_STEP && !trialsExceeded) {
+		finalTrajectory = trajectory;
+		index = trials;
+
+		return false;
+	}
+
+	if (trialsExceeded) {
+		finalTrajectory = boost::none;
+		index = -1;
+
+		return false;
+	}
+
+	trials++;
+
+	return true;
 }

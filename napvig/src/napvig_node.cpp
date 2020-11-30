@@ -131,6 +131,7 @@ void NapvigNode::odomCallback (const nav_msgs::Odometry &odomMsg)
 {
 	torch::Tensor quaternion = quaternionMsgToTorch (odomMsg.pose.pose.orientation);
 	torch::Tensor position = pointMsgToTorch (odomMsg.pose.pose.position).slice (0,0,2);
+
 	napvigHandler.updateFrame (Frame{Rotation(quaternion), position});
 }
 

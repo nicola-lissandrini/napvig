@@ -21,18 +21,17 @@ pair<Napvig::Trajectory, Policy::Termination> NapvigPredictive::predictTrajector
 	current = initialState.clone ();
 	// First trajectory sample is initial state
 	predicted.push_back (initialState);
-	QUA;
+
 	// Iterate until current policy termination condition arises
 	do {
 		// Update search direction according to policy
-		current.search = policy->getNextSearch (predicted); QUA;
+		current.search = policy->getNextSearch (predicted);
 
-		cout << "Search\n" << current.search << endl;
-		cout << "Pos\n" << current.position << endl << endl;
 		// Compute next step
-		current = core.compute (current); QUA;
+		current = core.compute (current);
+
 		// Store in trajectory
-		predicted.push_back (current); QUA;
+		predicted.push_back (current);
 
 		condition = policy->terminationCondition (predicted);
 	} while (condition == Policy::PREDICTION_TERMINATION_NONE);
@@ -47,6 +46,7 @@ boost::optional<Napvig::Trajectory> NapvigPredictive::followPolicy (const State 
 
 	// Initialize policy if needed
 	policy->init ();
+	debug->history.reset ();
 
 	// Until a trajectory is selected..
 	do {
@@ -56,13 +56,19 @@ boost::optional<Napvig::Trajectory> NapvigPredictive::followPolicy (const State 
 
 		// Perform prediction
 		tie (trajectory, termination) = predictTrajectory (firstState, policy);
-	} while (!policy->selectTrajectory (trajectory, termination)); // Choose policy if validated or terminate if none is found
+		
+		// Debug
+		debug->history.add (trajectory);
+	} while (policy->processTrajectory (trajectory, termination)); // Iterate until processTrajectory returns false
 
-	// Check whether no suitable trajectory is found
-	if (policy->noTrajectory ())
-		return boost::none;
-	else
-		return trajectory;
+	// Return final trajectory
+	boost::optional<Napvig::Trajectory> finalTrajectory;
+	int chosen;
+
+	tie (finalTrajectory, chosen) = policy->getFinalTrajectory ();
+	debug->history.chosen = chosen;
+
+	return finalTrajectory;
 }
 
 /***********

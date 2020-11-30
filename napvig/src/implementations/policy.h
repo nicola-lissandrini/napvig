@@ -11,7 +11,8 @@ class PolicyAbstract
 protected:
 	std::shared_ptr<ParamsAbstract> paramsData;
 	const std::shared_ptr<Landscape> landscape;
-	ReadyFlags<std::string> flags;
+	boost::optional<Napvig::Trajectory> finalTrajectory;
+	int index;
 
 	const ParamsAbstract &params() const {
 		return *std::dynamic_pointer_cast<const ParamsAbstract> (paramsData);
@@ -27,19 +28,18 @@ public:
 
 	PolicyAbstract (const std::shared_ptr<Landscape> &_landscape,
 					const std::shared_ptr<ParamsAbstract> &_params):
-		landscape(_landscape),
-		paramsData(_params)
+		paramsData(_params),
+		landscape(_landscape)
 	{
-		flags.addFlag ("no_trajectory");
 	}
 
 	virtual void init () {}
 	virtual torch::Tensor getFirstSearch (const Napvig::State &initialState) = 0;
 	virtual torch::Tensor getNextSearch (const Napvig::Trajectory &trajectory) = 0;
 	virtual Termination terminationCondition (const Napvig::Trajectory &trajectory) = 0;
-	virtual bool selectTrajectory (const Napvig::Trajectory &trajectory, Termination termination) = 0;
-	bool noTrajectory () {
-		return flags["no_trajectory"];
+	virtual bool processTrajectory (const Napvig::Trajectory &trajectory, Termination termination) = 0;
+	std::pair<boost::optional<Napvig::Trajectory>, int> getFinalTrajectory () {
+		return {finalTrajectory, index};
 	}
 };
 

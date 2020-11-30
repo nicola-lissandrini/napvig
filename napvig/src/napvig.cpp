@@ -46,7 +46,7 @@ Tensor Napvig::Core::valleySearch (const Tensor &xStep, const Tensor &rSearch) c
 		terminationCondition = (updateDistance < params.terminationDistance) || (iterCount > params.terminationCount);
 	}
 
-	cout << "Term after " << iterCount << " trials" << endl;
+	// cout << "Term after " << iterCount << " trials" << endl;
 
 	return xCurr;
 }
@@ -144,6 +144,9 @@ Napvig::Napvig (Napvig::AlgorithmType _type,
 
 boost::optional<Napvig::Trajectory> Napvig::computeTrajectory ()
 {
+	if (!this->isReady ())
+		return boost::none;
+
 	State initialInMeasures = framesTracker.toMeasuresFrame (zeroState);
 
 	return trajectoryAlgorithm (initialInMeasures);
@@ -172,6 +175,10 @@ Napvig::AlgorithmType Napvig::getType() const {
 	return type;
 }
 
+Tensor Napvig::getZero() const {
+	return torch::zeros ({landscape.getDim ()}, kDouble);
+}
+
 /********
  * Debug info
  * ******/
@@ -179,6 +186,27 @@ NapvigDebug::NapvigDebug(const std::shared_ptr<Landscape> &_landscape):
 	landscape(_landscape)
 {
 }
+
+void NapvigDebug::SearchHistory::reset() {
+	triedPaths.resize (0);
+}
+
+void NapvigDebug::SearchHistory::add (const Napvig::Trajectory &path)
+{
+	Tensor pathTensor;
+	Tensor firstTensor = path[0].position.unsqueeze (0);
+
+	pathTensor = firstTensor.clone ();
+
+	for (int i = 1; i < path.size (); i++) {
+		pathTensor = torch::cat ({pathTensor, path[i].position.unsqueeze (0)}, 0);
+	}
+	
+	triedPaths.push_back (pathTensor);
+	initialSearches.push_back (firstTensor.squeeze ());
+}
+
+
 
 
 

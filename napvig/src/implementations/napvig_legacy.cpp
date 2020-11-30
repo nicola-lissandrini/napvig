@@ -18,11 +18,8 @@ boost::optional<Napvig::Trajectory> NapvigLegacy::trajectoryAlgorithm (const Sta
 {
 	boost::optional<Trajectory> trajectory;
 
-	if (!this->isReady ())
-		return boost::none;
-
 	State step = core.compute (initialState);
-	trajectory = Trajectory {step};
+	trajectory = Trajectory {initialState, step};
 
 	return trajectory;
 }
