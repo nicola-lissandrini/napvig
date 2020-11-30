@@ -19,20 +19,7 @@ struct Range {
 	double min, max, step;
 };
 
-struct NapvigDebug
-{
-	const std::shared_ptr<Landscape> landscape;
-	std::vector<float> values;
-	torch::Tensor debugTensor;
-
-	struct SearchHistory {
-		std::vector<torch::Tensor> triedPaths;
-		std::vector<torch::Tensor> initialSearches;
-		int chosen;
-	} history;
-
-	NapvigDebug (const std::shared_ptr<Landscape> &_landscape);
-};
+struct NapvigDebug;
 
 class Napvig
 {
@@ -41,7 +28,7 @@ public:
 		torch::Tensor position;
 		torch::Tensor search;
 
-		State clone () {
+		State clone () const {
 			return State {position.clone (), search.clone()};
 		}
 	};
@@ -63,11 +50,21 @@ public:
 		double gradientStepSize;
 		double terminationDistance;
 		int terminationCount;
+
+		// Allow dynamic cast
+		virtual ~Params() = default;
 	};
 
 protected:
+	std::shared_ptr<Params> paramsData;
+
+	// Allow params inheritance
+	const Params &params () const {
+		return *paramsData;
+	}
+
+protected:
 	AlgorithmType type;
-	Params params;
 	Landscape landscape;
 
 	// Debug info
@@ -75,7 +72,7 @@ protected:
 
 	// Main algorithm
 	class Core {
-		Params params;
+		const Params &params;
 		Landscape &landscape;
 
 		torch::Tensor projectOnto (const torch::Tensor &space, const at::Tensor &vector) const;
@@ -83,8 +80,9 @@ protected:
 		torch::Tensor stepAhead (const State &q) const;
 		torch::Tensor valleySearch (const torch::Tensor &xStep, const torch::Tensor &rSearch) const;
 		torch::Tensor nextSearch (const torch::Tensor &current, const torch::Tensor &next) const;
+
 	public:
-		Core (Params _params, Landscape &parentLandscape);
+		Core (const Params &_params, Landscape &parentLandscape);
 
 		State compute (const State &q) const;
 	} core;
@@ -109,8 +107,8 @@ private:
 
 public:
 	Napvig (AlgorithmType _type,
-			const Landscape::Params &landscapeParams,
-			const Params &napvigParams);
+			const std::shared_ptr<Landscape::Params> &landscapeParams,
+			const std::shared_ptr<Params> &napvigParams);
 	
 	boost::optional<Trajectory> computeTrajectory ();
 
@@ -121,9 +119,26 @@ public:
 
 	bool isReady () const;
 	AlgorithmType getType () const;
+	torch::Tensor getZero () const;
 };
 
+struct NapvigDebug
+{
+	const std::shared_ptr<Landscape> landscape;
+	std::vector<float> values;
+	torch::Tensor debugTensor;
 
+	struct SearchHistory {
+		std::vector<torch::Tensor> triedPaths;
+		std::vector<torch::Tensor> initialSearches;
+		int chosen;
+
+		void reset ();
+		void add (const Napvig::Trajectory &path);
+	} history;
+
+	NapvigDebug (const std::shared_ptr<Landscape> &_landscape);
+};
 
 
 

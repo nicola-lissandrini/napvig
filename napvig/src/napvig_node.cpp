@@ -71,6 +71,7 @@ void NapvigNode::initROS ()
 
 	switch (napvigHandler.getType ()) {
 	case Napvig::NAPVIG_LEGACY:
+	case Napvig::NAPVIG_RANDOMIZED:
 		// Nothing to add
 		break;
 	case Napvig::NAPVIG_X:
@@ -130,6 +131,7 @@ void NapvigNode::odomCallback (const nav_msgs::Odometry &odomMsg)
 {
 	torch::Tensor quaternion = quaternionMsgToTorch (odomMsg.pose.pose.orientation);
 	torch::Tensor position = pointMsgToTorch (odomMsg.pose.pose.position).slice (0,0,2);
+
 	napvigHandler.updateFrame (Frame{Rotation(quaternion), position});
 }
 

@@ -145,7 +145,7 @@ void NapvigNodeDebugger::buildValuesMsg (std_msgs::Float32MultiArray &valuesMsg)
 }
 
 bool NapvigNodeDebugger::checkPublishMeasures()  const {
-	return (params.drawWhat != TEST_DRAW_NONE);
+	return params.publishMeasures;
 }
 
 bool NapvigNodeDebugger::checkPublishHistory()  const {

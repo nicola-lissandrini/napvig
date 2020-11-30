@@ -4,20 +4,12 @@ using namespace std;
 using namespace torch;
 
 NapvigPredictive::NapvigPredictive (AlgorithmType type,
-									const Landscape::Params &landscapeParams,
-									const NapvigPredictive::Params &predictiveParams):
+									const shared_ptr<Landscape::Params> &landscapeParams,
+									const shared_ptr<Napvig::Params> &napvigParams):
 	Napvig (type,
 			landscapeParams,
-			predictiveParams.napvigParams),
-	params(predictiveParams)
+			napvigParams)
 {
-	flags.addFlag ("first_policy_set", true);
-}
-
-void NapvigPredictive::setPolicy(std::shared_ptr<Policy> _policy)
-{
-	policy = _policy;
-	flags.set("first_policy");
 }
 
 pair<Napvig::Trajectory, Policy::Termination> NapvigPredictive::predictTrajectory (const Napvig::State &initialState, const shared_ptr<Policy> &policy)
@@ -25,7 +17,8 @@ pair<Napvig::Trajectory, Policy::Termination> NapvigPredictive::predictTrajector
 	Napvig::Trajectory predicted;
 	Napvig::State current;
 	Policy::Termination condition;
-	
+
+	current = initialState.clone ();
 	// First trajectory sample is initial state
 	predicted.push_back (initialState);
 
@@ -33,8 +26,10 @@ pair<Napvig::Trajectory, Policy::Termination> NapvigPredictive::predictTrajector
 	do {
 		// Update search direction according to policy
 		current.search = policy->getNextSearch (predicted);
+
 		// Compute next step
 		current = core.compute (current);
+
 		// Store in trajectory
 		predicted.push_back (current);
 
@@ -44,18 +39,16 @@ pair<Napvig::Trajectory, Policy::Termination> NapvigPredictive::predictTrajector
 	return {predicted, condition};
 }
 
-boost::optional<Napvig::Trajectory> NapvigPredictive::trajectoryAlgorithm (const State &initialState)
+boost::optional<Napvig::Trajectory> NapvigPredictive::followPolicy (const State &initialState, const std::shared_ptr<Policy> &policy)
 {
-	if (!isReady ())
-		return boost::none;
-
 	Napvig::Trajectory trajectory;
 	Policy::Termination termination;
 
 	// Initialize policy if needed
 	policy->init ();
+	debug->history.reset ();
 
-	// Until a trajectory is selected
+	// Until a trajectory is selected..
 	do {
 		// Get initial search according to policy
 		Tensor firstSearch = policy->getFirstSearch (initialState);
@@ -63,13 +56,47 @@ boost::optional<Napvig::Trajectory> NapvigPredictive::trajectoryAlgorithm (const
 
 		// Perform prediction
 		tie (trajectory, termination) = predictTrajectory (firstState, policy);
-	} while (!selectTrajectory (trajectory, termination)); // Choose policy if validated or terminate if none is found
+		
+		// Debug
+		debug->history.add (trajectory);
+	} while (policy->processTrajectory (trajectory, termination)); // Iterate until processTrajectory returns false
 
-	// Check whether no suitable trajectory is found
-	if (policy->noTrajectory ())
-		return boost::none;
-	else
-		return trajectory;
+	// Return final trajectory
+	boost::optional<Napvig::Trajectory> finalTrajectory;
+	int chosen;
+
+	tie (finalTrajectory, chosen) = policy->getFinalTrajectory ();
+	debug->history.chosen = chosen;
+
+	return finalTrajectory;
 }
+
+/***********
+ * Policies
+ * *********/
+
+Tensor SearchStraightPolicy::getNextSearch (const Napvig::Trajectory &trajectory)
+{
+	// Go straight with napvig output
+	return trajectory.back ().search;
+}
+
+Policy::Termination CollisionTerminatedPolicy::terminationCondition (const Napvig::Trajectory &trajectory)
+{
+	Napvig::State last = trajectory.back ();
+
+	if (landscape->collides (last.position))
+		return PREDICTION_TERMINATION_COLLISION;
+
+	if (trajectory.size () >= params().windowLength)
+		return PREDICTION_TERMINATION_MAX_STEP;
+
+	return PREDICTION_TERMINATION_NONE;
+}
+
+StartDrivenPolicy::StartDrivenPolicy(const std::shared_ptr<const Landscape> &_landscape,
+									 const std::shared_ptr<const NapvigPredictive::Params> &_params):
+	Policy(_landscape, _params)
+{}
 
 

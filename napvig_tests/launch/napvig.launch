@@ -1,7 +1,7 @@
 <?xml version="1.0"?>
 
 <launch>
-	<arg name="scenario" value="corridor_raiser" />
+	<arg name="scenario" value="columns" />
 
 	<!-- Configure ROS topics configuration -->
 	<rosparam command="load" file="$(find napvig_tests)/config/ros_configuration.yaml" />

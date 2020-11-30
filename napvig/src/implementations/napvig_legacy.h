@@ -5,11 +5,11 @@
 
 class NapvigLegacy : public Napvig
 {
-	boost::optional<Trajectory> trajectoryAlgorithm (const State &zeroState);
+	boost::optional<Trajectory> trajectoryAlgorithm (const State &zeroState) override;
 
 public:
-	NapvigLegacy(const Landscape::Params &landscapeParams,
-				 const Napvig::Params &napvigParams);
+	NapvigLegacy(const std::shared_ptr<Landscape::Params> &landscapeParams,
+				 const std::shared_ptr<Napvig::Params> &napvigParams);
 
 
 };

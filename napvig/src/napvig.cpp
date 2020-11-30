@@ -14,7 +14,7 @@ using namespace std;
  * Main method: State compute (State q)
  * *******************/
 
-Napvig::Core::Core(Params _params, Landscape &parentLandscape):
+Napvig::Core::Core(const Params &_params, Landscape &parentLandscape):
 	params(_params),
 	landscape(parentLandscape)
 {}
@@ -46,7 +46,7 @@ Tensor Napvig::Core::valleySearch (const Tensor &xStep, const Tensor &rSearch) c
 		terminationCondition = (updateDistance < params.terminationDistance) || (iterCount > params.terminationCount);
 	}
 
-	cout << "Term after " << iterCount << " trials" << endl;
+	// cout << "Term after " << iterCount << " trials" << endl;
 
 	return xCurr;
 }
@@ -132,18 +132,21 @@ Napvig::State Napvig::FramesTracker::toMeasuresFrame (const State &stateOdom) {
  * *******************/
 
 Napvig::Napvig (Napvig::AlgorithmType _type,
-				const Landscape::Params &landscapeParams,
-				const Napvig::Params &napvigParams):
+				const std::shared_ptr<Landscape::Params> &landscapeParams,
+				const shared_ptr<Napvig::Params> &napvigParams):
 	type(_type),
 	landscape(landscapeParams),
-	params(napvigParams),
-	core(napvigParams, landscape)
+	paramsData(napvigParams),
+	core(*napvigParams, landscape)
 {
 	debug = make_shared<NapvigDebug> (shared_ptr<Landscape> (&landscape));
 }
 
 boost::optional<Napvig::Trajectory> Napvig::computeTrajectory ()
 {
+	if (!this->isReady ())
+		return boost::none;
+
 	State initialInMeasures = framesTracker.toMeasuresFrame (zeroState);
 
 	return trajectoryAlgorithm (initialInMeasures);
@@ -172,6 +175,10 @@ Napvig::AlgorithmType Napvig::getType() const {
 	return type;
 }
 
+Tensor Napvig::getZero() const {
+	return torch::zeros ({landscape.getDim ()}, kDouble);
+}
+
 /********
  * Debug info
  * ******/
@@ -179,6 +186,27 @@ NapvigDebug::NapvigDebug(const std::shared_ptr<Landscape> &_landscape):
 	landscape(_landscape)
 {
 }
+
+void NapvigDebug::SearchHistory::reset() {
+	triedPaths.resize (0);
+}
+
+void NapvigDebug::SearchHistory::add (const Napvig::Trajectory &path)
+{
+	Tensor pathTensor;
+	Tensor firstTensor = path[0].position.unsqueeze (0);
+
+	pathTensor = firstTensor.clone ();
+
+	for (int i = 1; i < path.size (); i++) {
+		pathTensor = torch::cat ({pathTensor, path[i].position.unsqueeze (0)}, 0);
+	}
+	
+	triedPaths.push_back (pathTensor);
+	initialSearches.push_back (firstTensor.squeeze ());
+}
+
+
 
 
 

@@ -4,6 +4,7 @@
 	<arg name="scenario" />
 
 	<include file="$(find gazebo_ros)/launch/empty_world.launch">
+    	<arg if="$(eval arg('scenario') == 'columns')" name="world_name" value="$(find turtlebot3_gazebo)/worlds/turtlebot3_world.world"/>
 		<arg name="verbose" value="false" />
 		<arg name="paused" value="false" />
 	</include>

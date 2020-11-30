@@ -24,8 +24,9 @@ public:
 		int precision;
 		int dim;
 	};
+
 private:
-	Params params;
+	std::shared_ptr<Params> paramsData;
 	torch::Tensor measures;
 	ReadyFlags<std::string> flags;
 	double smoothGain;
@@ -43,9 +44,11 @@ private:
 	torch::Tensor normSquare (const torch::Tensor &x) const;
 	double gammaDistance (double distance) const;
 
-
+	const Params &params () const {
+		return *std::dynamic_pointer_cast<Params> (paramsData);
+	}
 public:
-	Landscape (const Params &_params);
+	Landscape (const std::shared_ptr<Params> &_params);
 
 	torch::Tensor value (const torch::Tensor &x) const;
 	torch::Tensor grad (const torch::Tensor &x) const;

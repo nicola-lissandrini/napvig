@@ -8,7 +8,7 @@ using namespace torch;
 using namespace torch::indexing;
 using namespace std;
 
-NapvigLegacy::NapvigLegacy(const Landscape::Params &landscapeParams, const Params &napvigParams):
+NapvigLegacy::NapvigLegacy(const shared_ptr<Landscape::Params> &landscapeParams, const shared_ptr<Params> &napvigParams):
 	Napvig(NAPVIG_LEGACY,
 		   landscapeParams,
 		   napvigParams)
@@ -18,11 +18,8 @@ boost::optional<Napvig::Trajectory> NapvigLegacy::trajectoryAlgorithm (const Sta
 {
 	boost::optional<Trajectory> trajectory;
 
-	if (!this->isReady ())
-		return boost::none;
-
 	State step = core.compute (initialState);
-	trajectory = Trajectory {step};
+	trajectory = Trajectory {initialState, step};
 
 	return trajectory;
 }

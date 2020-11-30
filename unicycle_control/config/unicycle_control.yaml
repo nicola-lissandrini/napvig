@@ -1,8 +1,8 @@
 unicycle_control:
   rate: 100.0
   gains:
-    - 1.8         # angular error gain P
+    - 1.3         # angular error gain P
     - 0.3         # velocity error gain P
-    - 0.09        # velocity scale factor
+    - 0.13        # velocity scale factor
     - 0.0         # angular error gain D
     - 0.00        # angular erro gain I

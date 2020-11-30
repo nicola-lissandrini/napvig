@@ -12,14 +12,14 @@ using namespace std;
 #define ARGMIN
 
 double Landscape::getNoAmplificationGain() const {
-	const double sqMR = pow(params.measureRadius,2);
-	const double sqSR = pow(params.smoothRadius,2);
+	const double sqMR = pow(params().measureRadius,2);
+	const double sqSR = pow(params().smoothRadius,2);
 	return pow ((sqMR + sqSR)/
-			(2 * M_PI * sqMR * sqSR), 2/double(params.dim));
+			(2 * M_PI * sqMR * sqSR), 2/double(params().dim));
 }
 
 double Landscape::getSmoothGain () const {
-	return pow (2 * M_PI * pow(params.smoothRadius,2), double(params.dim)/2) * getNoAmplificationGain ();
+	return pow (2 * M_PI * pow(params().smoothRadius,2), double(params().dim)/2) * getNoAmplificationGain ();
 }
 
 
@@ -58,7 +58,7 @@ Tensor Landscape::gaussian(const Tensor &x, double sigma) const {
 #endif
 
 Tensor Landscape::gamma(const Tensor &x) const {
-	return gaussian (x - measures, params.measureRadius);
+	return gaussian (x - measures, params().measureRadius);
 }
 
 Tensor Landscape::normSquare (const Tensor &x) const {
@@ -84,13 +84,13 @@ Tensor Landscape::potentialFunction(const Tensor &x) const {
 Tensor Landscape::exponentialPart (const Tensor &distToMeasures, const Tensor &kIndex) const {
 	Tensor collapsed = distToMeasures.index ({kIndex, Ellipsis});
 
-	return gaussian (collapsed, params.measureRadius);
+	return gaussian (collapsed, params().measureRadius);
 }
 
 Tensor Landscape::exponentialPart (const Tensor &selectedDistToMeasures) const {
 	Tensor collapsed = selectedDistToMeasures;
 
-	return gaussian (collapsed, params.measureRadius);
+	return gaussian (collapsed, params().measureRadius);
 }
 #endif
 
@@ -99,21 +99,22 @@ Tensor Landscape::preSmooth(const Tensor &x) const {
 	return potentialFunction (x) * smoothGain;
 }
 
-Landscape::Landscape(const Landscape::Params &_params):
-	params(_params)
+Landscape::Landscape(const std::shared_ptr<Params> &_params):
+	paramsData(_params)
 {
 	smoothGain = getSmoothGain ();
 	flags.addFlag ("measures_set");
 }
 
-Tensor Landscape::value (const Tensor &x) const {
+Tensor Landscape::value (const Tensor &x) const
+{
 	if (!flags.isReady ())
 		return Tensor ();
 
 	if (measures.size(0) == 0)
 		return torch::zeros ({1}, kDouble)[0];
 	else
-		return montecarlo (&Landscape::preSmooth, this, params.dim, params.precision, x, params.smoothRadius, false);
+		return montecarlo (&Landscape::preSmooth, this, params().dim, params().precision, x, params().smoothRadius, false);
 }
 
 #ifdef AUTOGRAD
@@ -148,21 +149,21 @@ Tensor Landscape::grad (const Tensor &x) const {
 	else
 		return montecarlo (&Landscape::preSmoothGrad,
 						   this,
-						   params.dim,
-						   params.precision,
-						   x.view({1,params.dim}),
-						   params.smoothRadius,
+						   params().dim,
+						   params().precision,
+						   x.view({1,params().dim}),
+						   params().smoothRadius,
 						   true);
 }
 
 double Landscape::gammaDistance (double distance) const {
-		return exp (-pow(distance,2)/(2 * pow(params.measureRadius,2)));
+		return exp (-pow(distance,2)/(2 * pow(params().measureRadius,2)));
 }
 
 #endif
 
 bool Landscape::collides (const Tensor &x) const {
-	return value (x).item ().toDouble () > gammaDistance (params.minDistance);
+	return value (x).item ().toDouble () > gammaDistance (params().minDistance);
 }
 
 
@@ -171,7 +172,7 @@ bool Landscape::isReady() const {
 }
 
 int Landscape::getDim() const {
-	return params.dim;
+	return params().dim;
 
 }
 #if 0
@@ -191,7 +192,7 @@ void NapvigMap::setMeasures (const Tensor &newMeasures)
 	for (int i = 0; i < newMeasures.size(0); i++) {
 		Tensor curr = newMeasures.index ({i, Ellipsis});
 		cout << torch::isfinite (curr) << endl;
-		if ((curr - lastClusterStart).norm ()[0].item().toDouble () < params.measureRadius) {
+		if ((curr - lastClusterStart).norm ()[0].item().toDouble () < params().measureRadius) {
 			if (lastClusterSize > 0) {
 				currClusterNo++;
 				lastClusterSize = 1;
@@ -218,7 +219,7 @@ void Landscape::setMeasures (const Tensor &newMeasures)
 {
 	Tensor validIdxes = (torch::isfinite (newMeasures).sum(1)).nonzero ();
 
-	measures = newMeasures.index ({validIdxes}).view ({validIdxes.size (0), 1, params.dim});
+	measures = newMeasures.index ({validIdxes}).view ({validIdxes.size (0), 1, params().dim});
 	measures = measures.index ({Slice(None,None,3), Ellipsis});
 
 	flags.set ("measures_set");
