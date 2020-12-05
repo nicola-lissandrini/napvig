@@ -90,7 +90,7 @@ void NapvigHandler::GetNapvigParams::addRandomized()
 
 void NapvigHandler::GetNapvigParams::addX()
 {
-	params<NapvigX>()->stepGainSaturation = paramDouble (xmlParams["predictive"]["x"],"step_gain_saturation");
+	params<NapvigX>()->stepGainSaturationDistance = paramDouble (xmlParams["predictive"]["x"],"step_gain_saturation_distance");
 	params<NapvigX>()->angleSearch = paramRange (xmlParams["predictive"]["x"],"angle_search");
 	params<NapvigX>()->targetReachedThreshold = paramDouble (xmlParams["predictive"]["x"],"target_reached_threshold");
 }

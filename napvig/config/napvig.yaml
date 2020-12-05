@@ -6,7 +6,7 @@ napvig:
   landscape:
     measure_radius: 0.3
     smooth_radius: 0.05
-    precision: 100
+    precision: 500
     dimensions: 2
     min_distance: 0.15
   napvig:
@@ -21,7 +21,7 @@ napvig:
         randomize_variance: 1
         max_trials: 5
       x:
-        step_gain_saturation: 1
+        step_gain_saturation_distance: 1
         target_reached_threshold: 0.05
         angle_search:
           min: rad(-pi)

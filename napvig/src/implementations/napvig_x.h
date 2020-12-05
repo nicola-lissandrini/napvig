@@ -29,7 +29,7 @@ class NapvigX : public NapvigPredictive, public TargetTracker
 {
 public:
 	struct Params : NapvigPredictive::Params {
-		double stepGainSaturation;
+		double stepGainSaturationDistance;
 		double targetReachedThreshold;
 		Range angleSearch;
 	};
@@ -39,6 +39,7 @@ private:
 	const Params &params () const {
 		return *std::dynamic_pointer_cast<Params> (paramsData);
 	}
+	bool checkTargetUnreachable () const;
 
 protected:
 	std::shared_ptr<FullyExploitative> fextPolicy;

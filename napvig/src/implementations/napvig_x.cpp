@@ -35,10 +35,20 @@ NapvigX::NapvigX (const std::shared_ptr<Landscape::Params> &landscapeParams,
 	   pextPolicy = make_shared<PartiallyExploitative> ();*/
 }
 
+bool NapvigX::checkTargetUnreachable() const {
+	return landscape.collides (targetFrame.position);
+}
+
 boost::optional<Napvig::Trajectory> NapvigX::trajectoryAlgorithm (const State &initialState)
 {
 	if (!targetSet ())
 		return boost::none;
+	if (checkTargetUnreachable ()) {
+		ROS_WARN ("Target unreachable");
+		return boost::none;
+	} else {
+		ROS_INFO ("++TARGET REACHABLE");
+	}
 
 	// Check an existing Fully Exploitative trajectory exists
 	return followPolicy (initialState, fextPolicy);
@@ -56,7 +66,7 @@ pair<Tensor,boost::optional<Tensor>> FullyExploitative::searchTowardsTarget(cons
 	torch::Tensor diff = (targetFrame->position - currentPosition);
 	cout << "diff " << diff.norm().item () << " rapp " << (diff.norm()  / params().stepAheadSize).item() << endl;
 	return {diff / diff.norm (),
-				saturate (diff.norm () / params().stepAheadSize, params().stepGainSaturation)};
+				saturate (diff.norm () / params().stepGainSaturationDistance, 1)};
 }
 
 bool FullyExploitative::checkTargetReached () const {
@@ -105,8 +115,6 @@ bool FullyExploitative::processTrajectory (const Napvig::Trajectory &trajectory,
 		cout << "unexp " << termination << endl;
 		break;
 	}
-
-
 
 	// Fully-Explorative is one-shot, the trajectory either exists or it doesn't
 	// So always stop
