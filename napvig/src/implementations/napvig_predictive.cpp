@@ -12,7 +12,7 @@ NapvigPredictive::NapvigPredictive (AlgorithmType type,
 {
 }
 
-pair<Napvig::Trajectory, Policy::Termination> NapvigPredictive::predictTrajectory (const Napvig::State &initialState, const shared_ptr<Policy> &policy)
+pair<Napvig::Trajectory, Policy::Termination> NapvigPredictive::predictTrajectory (const State &initialState, const shared_ptr<Policy> &policy)
 {
 	Napvig::Trajectory predicted;
 	Napvig::State current;
@@ -25,7 +25,7 @@ pair<Napvig::Trajectory, Policy::Termination> NapvigPredictive::predictTrajector
 	// Iterate until current policy termination condition arises
 	do {
 		// Update search direction according to policy
-		current.search = policy->getNextSearch (predicted);
+		tie (current.search, current.stepGain) = policy->getNextSearch (predicted);
 
 		// Compute next step
 		current = core.compute (current);
@@ -51,8 +51,8 @@ boost::optional<Napvig::Trajectory> NapvigPredictive::followPolicy (const State 
 	// Until a trajectory is selected..
 	do {
 		// Get initial search according to policy
-		Tensor firstSearch = policy->getFirstSearch (initialState);
-		State firstState = {initialState.position, firstSearch};
+		State firstState = initialState.clone ();
+		tie (firstState.search, firstState.stepGain) = policy->getFirstSearch (initialState);
 
 		// Perform prediction
 		tie (trajectory, termination) = predictTrajectory (firstState, policy);
@@ -75,10 +75,10 @@ boost::optional<Napvig::Trajectory> NapvigPredictive::followPolicy (const State 
  * Policies
  * *********/
 
-Tensor SearchStraightPolicy::getNextSearch (const Napvig::Trajectory &trajectory)
+pair<Tensor,boost::optional<Tensor>> SearchStraightPolicy::getNextSearch (const Napvig::Trajectory &trajectory)
 {
 	// Go straight with napvig output
-	return trajectory.back ().search;
+	return {trajectory.back ().search, boost::none};
 }
 
 Policy::Termination CollisionTerminatedPolicy::terminationCondition (const Napvig::Trajectory &trajectory)

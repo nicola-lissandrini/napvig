@@ -14,7 +14,7 @@ public:
 
 
 protected:
-	std::pair<Napvig::Trajectory, PolicyAbstract<NapvigPredictive::Params>::Termination> predictTrajectory (const Napvig::State &initialState, const std::shared_ptr<PolicyAbstract<NapvigPredictive::Params>> &policy);
+	std::pair<Napvig::Trajectory, PolicyAbstract<NapvigPredictive::Params>::Termination> predictTrajectory (const State &initialState, const std::shared_ptr<PolicyAbstract<NapvigPredictive::Params>> &policy);
 	boost::optional<Napvig::Trajectory> followPolicy (const State &initialState, const std::shared_ptr<PolicyAbstract<NapvigPredictive::Params>> &policy);
 
 public:
@@ -32,7 +32,7 @@ using Policy = PolicyAbstract<NapvigPredictive::Params>;
 class SearchStraightPolicy : public virtual Policy
 {
 public:
-	torch::Tensor getNextSearch (const Napvig::Trajectory &trajectory);
+	std::pair<torch::Tensor,boost::optional<torch::Tensor>> getNextSearch (const Napvig::Trajectory &trajectory);
 };
 
 /***************
@@ -43,7 +43,7 @@ class CollisionTerminatedPolicy : public virtual Policy
 {
 
 public:
-	Termination terminationCondition (const Napvig::Trajectory &trajectory);
+	virtual Termination terminationCondition (const Napvig::Trajectory &trajectory);
 };
 
 /***************

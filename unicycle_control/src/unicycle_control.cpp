@@ -52,16 +52,22 @@ void UnicycleControl::updateInput (const VectorXd &state, const VectorXd &ref)
 	const double scaleFactor = params["gains"][2];
 	const double kOmegaDeriv = params["gains"][3];
 	const double kOmegaInt = params["gains"][4];
+	double direction= 1;
 
 	complexd b1 = ref[0] + ref[1] * 1i;
+	if (real(b1) < 0) {
+		b1 = -b1;
+		direction = -1;
+	}
 	complexd diff = log (b1);
 	double angleDiff = imag(diff);
+	double gain = sqrt (norm (b1));
 
 	double deriv = kOmegaDeriv * updateDeriv (angleDiff);
 	double integr = kOmegaInt * updateIntegr (angleDiff);
 	double omega = kOmega * angleDiff + deriv + integr;
 
-	control[0] = kVMax * exp (-pow(omega,2)/(2* pow (M_PI * scaleFactor,2)));
+	control[0] = direction * kVMax * exp (-pow(omega,2)/(2* pow (M_PI * scaleFactor,2))) * gain;
 	control[1] = omega;
 	t++;
 }

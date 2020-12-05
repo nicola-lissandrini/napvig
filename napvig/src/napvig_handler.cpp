@@ -71,25 +71,28 @@ shared_ptr<NapvigHandler::Params> NapvigHandler::getNapvigHandlerParams (XmlRpcV
 
 void NapvigHandler::GetNapvigParams::addCore()
 {
-	params->stepAheadSize = paramDouble (xmlParams["core"], "step_ahead_size");
-	params->gradientStepSize = paramDouble (xmlParams["core"], "gradient_step_size");
-	params->terminationDistance = paramDouble (xmlParams["core"], "termination_distance");
-	params->terminationCount = paramInt (xmlParams["core"], "termination_count");
+	params()->stepAheadSize = paramDouble (xmlParams["core"], "step_ahead_size");
+	params()->gradientStepSize = paramDouble (xmlParams["core"], "gradient_step_size");
+	params()->terminationDistance = paramDouble (xmlParams["core"], "termination_distance");
+	params()->terminationCount = paramInt (xmlParams["core"], "termination_count");
 }
 
 void NapvigHandler::GetNapvigParams::addPredictive()
 {
-	shared_ptr<NapvigPredictive::Params> predictiveParams = dynamic_pointer_cast<NapvigPredictive::Params> (params);
-
-	predictiveParams->windowLength = paramDouble (xmlParams["predictive"], "window_length");
+	params<NapvigPredictive>()->windowLength = paramDouble (xmlParams["predictive"], "window_length");
 }
 
 void NapvigHandler::GetNapvigParams::addRandomized()
 {
-	shared_ptr<NapvigRandomized::Params> randomizedParams = dynamic_pointer_cast<NapvigRandomized::Params> (params);
+	params<NapvigRandomized>()->randomizeVariance = paramDouble (xmlParams["predictive"]["randomized"], "randomize_variance");
+	params<NapvigRandomized>()->maxTrials = paramDouble (xmlParams["predictive"]["randomized"], "max_trials");
+}
 
-	randomizedParams->randomizeVariance = paramDouble (xmlParams["predictive"]["randomized"], "randomize_variance");
-	randomizedParams->maxTrials = paramDouble (xmlParams["predictive"]["randomized"], "max_trials");
+void NapvigHandler::GetNapvigParams::addX()
+{
+	params<NapvigX>()->stepGainSaturation = paramDouble (xmlParams["predictive"]["x"],"step_gain_saturation");
+	params<NapvigX>()->angleSearch = paramRange (xmlParams["predictive"]["x"],"angle_search");
+	params<NapvigX>()->targetReachedThreshold = paramDouble (xmlParams["predictive"]["x"],"target_reached_threshold");
 }
 
 NapvigHandler::GetNapvigParams::GetNapvigParams (XmlRpcValue &_xmlParams):
@@ -99,22 +102,33 @@ NapvigHandler::GetNapvigParams::GetNapvigParams (XmlRpcValue &_xmlParams):
 
 shared_ptr<Napvig::Params> NapvigHandler::GetNapvigParams::legacy ()
 {
-	params = make_shared<Napvig::Params> ();
+	paramsData = make_shared<Napvig::Params> ();
 
 	addCore ();
 
-	return params;
+	return paramsData;
 }
 
 shared_ptr<NapvigRandomized::Params> NapvigHandler::GetNapvigParams::randomized ()
 {
-	params = make_shared<NapvigRandomized::Params> ();
+	paramsData = make_shared<NapvigRandomized::Params> ();
 
 	addCore ();
 	addPredictive ();
 	addRandomized ();
 
-	return dynamic_pointer_cast<NapvigRandomized::Params> (params);
+	return dynamic_pointer_cast<NapvigRandomized::Params> (paramsData);
+}
+
+std::shared_ptr<NapvigX::Params> NapvigHandler::GetNapvigParams::x()
+{
+	paramsData = make_shared<NapvigX::Params> ();
+
+	addCore ();
+	addPredictive ();
+	addX ();
+
+	return dynamic_pointer_cast<NapvigX::Params> (paramsData);
 }
 
 void NapvigHandler::init (Napvig::AlgorithmType type, XmlRpcValue &xmlParams)
@@ -135,6 +149,13 @@ void NapvigHandler::init (Napvig::AlgorithmType type, XmlRpcValue &xmlParams)
 
 		napvig = make_shared<NapvigRandomized> (landscapeParams,
 												napvigRandomizedParams);
+		break;
+	}
+	case Napvig::NAPVIG_X: {
+		const shared_ptr<NapvigX::Params> napvigXParams = getParams.x ();
+
+		napvig = make_shared<NapvigX> (landscapeParams,
+									   napvigXParams);
 		break;
 	}
 	default:
@@ -159,10 +180,14 @@ boost::optional<torch::Tensor> NapvigHandler::getCommand ()
 	boost::optional<torch::Tensor> command;
 	auto trajectory = napvig->computeTrajectory ();
 
-	if (trajectory)
+	if (trajectory) {
 		// Get first trajectory position sample
 		// (n. 0 is the initial state)
 		command = trajectory->at (1).position;
+		ROS_ERROR ("C'e` una traaaajjjjjj");
+	}
+	else
+		cout << "No traj" << endl;
 
 	return command;
 }
@@ -176,6 +201,15 @@ void NapvigHandler::updateFrame (const Frame &odomFrame) {
 
 	if (!params().synchronous)
 		dispatchCommand ();
+}
+
+void NapvigHandler::updateTarget (const Frame &targetFrame)
+{
+	shared_ptr<TargetTracker> napvigTO = dynamic_pointer_cast<TargetTracker> (napvig);
+
+	// Instantiated napvig must have target
+	if (napvigTO)
+		napvigTO->updateTarget (targetFrame);
 }
 
 Napvig::AlgorithmType NapvigHandler::getType() const {

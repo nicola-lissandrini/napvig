@@ -34,8 +34,8 @@ public:
 	}
 
 	virtual void init () {}
-	virtual torch::Tensor getFirstSearch (const Napvig::State &initialState) = 0;
-	virtual torch::Tensor getNextSearch (const Napvig::Trajectory &trajectory) = 0;
+	virtual std::pair<torch::Tensor,boost::optional<torch::Tensor>> getFirstSearch (const Napvig::State &initialState) = 0;
+	virtual std::pair<torch::Tensor,boost::optional<torch::Tensor>> getNextSearch (const Napvig::Trajectory &trajectory) = 0;
 	virtual Termination terminationCondition (const Napvig::Trajectory &trajectory) = 0;
 	virtual bool processTrajectory (const Napvig::Trajectory &trajectory, Termination termination) = 0;
 	std::pair<boost::optional<Napvig::Trajectory>, int> getFinalTrajectory () {

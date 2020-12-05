@@ -23,3 +23,7 @@ corridor_raiser:
   wall_topic_pub: /corridor_raiser/walls
   corridor_topic_pub: /corridor_raiser/corridor
   odom_topic_sub: /turtlebot/odom
+fake_target:
+  odom_sub: /turtlebot/odom
+  target_pos_sub: /target_detector/set_target
+  body_frame_target_pub: /target_detector/target_body

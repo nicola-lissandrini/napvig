@@ -40,10 +40,10 @@ int FakeTargetNode::actions ()
 
 void FakeTargetNode::initROS ()
 {
-	addSub ("odom_sub", paramString (params, "turtle_odom"), 1, &FakeTargetNode::odomCallback);
-	addSub ("target_pos_sub", paramString (params, "target_pos"), 1, &FakeTargetNode::poseCallback);
+	addSub ("odom_sub", paramString (params, "odom_sub"), 1, &FakeTargetNode::odomCallback);
+	addSub ("target_pos_sub", paramString (params, "target_pos_sub"), 1, &FakeTargetNode::poseCallback);
 
-	addPub<geometry_msgs::Pose> ("body_frame_target_pub", paramString (params, "target_body"), 1);
+	addPub<geometry_msgs::Pose> ("body_frame_target_pub", paramString (params, "body_frame_target_pub"), 1);
 }
 
 void FakeTargetNode::odomCallback (const nav_msgs::Odometry &odomMsg) {

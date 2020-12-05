@@ -7,7 +7,7 @@
 
 
 	<!-- Napvig-X -->
-	<!--node type="fake_target" name="fake_target" pkg="napvig" output="screen" /-->
+	<include file="$(find target_detection)/launch/target_detection.launch" />
 
 	<!-- Vehicle control -->
 	<include file="$(find unicycle_control)/launch/unicycle_control.launch" />

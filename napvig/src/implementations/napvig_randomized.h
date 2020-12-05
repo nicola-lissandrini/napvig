@@ -44,7 +44,7 @@ public:
 					 const std::shared_ptr<NapvigRandomized::Params> &_params);
 
 	void init ();
-	torch::Tensor getFirstSearch (const Napvig::State &initialState);
+	std::pair<torch::Tensor,boost::optional<torch::Tensor>> getFirstSearch (const Napvig::State &initialState);
 	bool processTrajectory (const Napvig::Trajectory &trajectory, Termination termination);
 };
 

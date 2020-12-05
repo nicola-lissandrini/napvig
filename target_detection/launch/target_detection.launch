@@ -1,0 +1,6 @@
+<?xml version="1.0"?>
+
+<launch>
+	<rosparam command="load" file="$(find target_detection)/config/target_detection.yaml" />
+	<node type="fake_target" name="fake_target" pkg="target_detection" output="screen" />
+</launch>

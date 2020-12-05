@@ -156,7 +156,8 @@ class DisplayNode:
 
         plt.scatter (self.meas_np[:,0], self.meas_np[:,1],2.5)
         plt.grid ()
-        plt.gca().set_xlim (-2.5, 2.5)
+        plt.gca().set_xlim (-1.5, 1.5)
+        plt.gca().set_ylim (-1.5, 1.5)
         plt.gca().set_aspect('equal', adjustable='box')
         print ("quaaa")
         plt.draw ()

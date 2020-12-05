@@ -68,7 +68,8 @@ Tensor Napvig::Core::getBaseOrthogonal (const Tensor &base) const
 }
 
 Tensor Napvig::Core::stepAhead (const State &q) const {
-	return q.position + params.stepAheadSize * q.search;
+	//cout << "jump " <<  q.stepGain.value_or (torch::ones ({1}, kDouble)).item() << " " << q.stepGain.has_value () << " " << params.stepAheadSize << endl;
+	return q.position + params.stepAheadSize * q.search * q.stepGain.value_or (torch::ones ({1}, kDouble));
 }
 
 Napvig::State Napvig::Core::compute (const Napvig::State &q) const
@@ -85,6 +86,7 @@ Napvig::State Napvig::Core::compute (const Napvig::State &q) const
 	// Get next bearing
 	next.search = nextSearch (q.position, next.position);
 
+	cout << "advance " << (next.position - q.position).norm ().item () << endl;
 	return next;
 }
 
@@ -182,6 +184,7 @@ Tensor Napvig::getZero() const {
 /********
  * Debug info
  * ******/
+
 NapvigDebug::NapvigDebug(const std::shared_ptr<Landscape> &_landscape):
 	landscape(_landscape)
 {

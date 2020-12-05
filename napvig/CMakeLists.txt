@@ -50,7 +50,8 @@ add_executable (napvig
 	src/rotation.cpp
         src/implementations/napvig_legacy.cpp
 	   src/implementations/napvig_predictive.cpp
-        src/implementations/napvig_randomized.cpp)
+	   src/implementations/napvig_randomized.cpp
+	   src/implementations/napvig_x.cpp)
 target_link_libraries (napvig ${catkin_LIBRARIES} ${TORCH_LIBRARIES} sparcsnode systems_lib)
 add_dependencies(napvig ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 

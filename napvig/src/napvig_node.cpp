@@ -18,6 +18,12 @@ Tensor pointMsgToTorch (const geometry_msgs::Point &vectorMsg) {
 						   vectorMsg.y,
 						   vectorMsg.z}, torch::kDouble);
 }
+Frame poseMsgToFrame (const geometry_msgs::Pose &poseMsg) {
+	torch::Tensor quaternion = quaternionMsgToTorch (poseMsg.orientation);
+	torch::Tensor position = pointMsgToTorch (poseMsg.position).slice (0,0,2);
+
+	return Frame (Rotation (quaternion), position);
+}
 
 NapvigNode::NapvigNode ():
 	SparcsNode(NODE_NAME),
@@ -78,6 +84,7 @@ void NapvigNode::initROS ()
 		initNapvigXTopics (params["topics"]["napvig_x"]);
 		break;
 	default:
+		assert (false && "Not implemented");
 		break;
 	}
 }
@@ -127,16 +134,12 @@ void NapvigNode::measuresCallback (const sensor_msgs::LaserScan &scanMsg)
 	}
 }
 
-void NapvigNode::odomCallback (const nav_msgs::Odometry &odomMsg)
-{
-	torch::Tensor quaternion = quaternionMsgToTorch (odomMsg.pose.pose.orientation);
-	torch::Tensor position = pointMsgToTorch (odomMsg.pose.pose.position).slice (0,0,2);
-
-	napvigHandler.updateFrame (Frame{Rotation(quaternion), position});
+void NapvigNode::odomCallback (const nav_msgs::Odometry &odomMsg) {
+	napvigHandler.updateFrame (poseMsgToFrame (odomMsg.pose.pose));
 }
 
 void NapvigNode::targetCallback (const geometry_msgs::Pose &targetMsg) {
-	assert (false && "Target callback not implemented");
+	napvigHandler.updateTarget (poseMsgToFrame (targetMsg));
 }
 
 int NapvigNode::actions () {

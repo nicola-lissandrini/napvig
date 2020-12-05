@@ -2,7 +2,7 @@ napvig:
   rate: 100
   synchronous: true
   stop_on_fail: true
-  algorithm: napvig_randomized
+  algorithm: napvig_x
   landscape:
     measure_radius: 0.3
     smooth_radius: 0.05
@@ -20,6 +20,13 @@ napvig:
       randomized:
         randomize_variance: 1
         max_trials: 5
+      x:
+        step_gain_saturation: 1
+        target_reached_threshold: 0.05
+        angle_search:
+          min: rad(-pi)
+          max: rad(pi)
+          step: rad(pi/4)
   debug:
     landscape_test:
       range_min: -0.8

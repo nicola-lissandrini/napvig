@@ -15,10 +15,6 @@
 
 #include <optional>
 
-struct Range {
-	double min, max, step;
-};
-
 struct NapvigDebug;
 
 class Napvig
@@ -27,6 +23,7 @@ public:
 	struct State {
 		torch::Tensor position;
 		torch::Tensor search;
+		boost::optional<torch::Tensor> stepGain;
 
 		State clone () const {
 			return State {position.clone (), search.clone()};
@@ -75,7 +72,7 @@ protected:
 		const Params &params;
 		Landscape &landscape;
 
-		torch::Tensor projectOnto (const torch::Tensor &space, const at::Tensor &vector) const;
+		torch::Tensor projectOnto (const torch::Tensor &space, const torch::Tensor &vector) const;
 		torch::Tensor getBaseOrthogonal (const torch::Tensor &base) const;
 		torch::Tensor stepAhead (const State &q) const;
 		torch::Tensor valleySearch (const torch::Tensor &xStep, const torch::Tensor &rSearch) const;

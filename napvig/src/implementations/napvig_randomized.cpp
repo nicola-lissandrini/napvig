@@ -38,17 +38,17 @@ Tensor RandomizePolicy::randomize (const torch::Tensor &search)
 	return randomizedRotation * search;
 }
 
-Tensor RandomizePolicy::getFirstSearch (const Napvig::State &initialState)
+pair<Tensor,boost::optional<Tensor>> RandomizePolicy::getFirstSearch (const Napvig::State &initialState)
 {
 	if (first) {
 		first = false;
 		lastSearch = initialState.search;
 
-		return lastSearch;
+		return {lastSearch, boost::none};
 	}  else {
 		lastSearch = randomize (lastSearch);
 
-		return lastSearch;
+		return {lastSearch, boost::none};
 	}
 }
 
