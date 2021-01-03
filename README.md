@@ -1,7 +1,7 @@
 # napvig
 ROS-ready navigation algorithm
 
-`roslaunch napvig napvig.launch`
+`roslaunch napvig_tests napvig.launch`
 
 ## Policy-driven trajectory generation
 The new version of Napvig (`dev/napvig-x`) introduces the possiblity to specify a Policy according to which the trajectory is generated.
