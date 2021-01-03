@@ -57,6 +57,10 @@ public:
 	int getDim () const;
 
 	void setMeasures (const torch::Tensor &newMeasures);
+
+	~Landscape () {
+		ROS_ERROR ("LANDSCAPE DESTROYED");
+	}
 };
 
 template<class T>

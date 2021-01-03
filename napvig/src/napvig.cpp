@@ -112,16 +112,27 @@ void Napvig::FramesTracker::resetFrame ()
 
 void Napvig::FramesTracker::updateFrame (const Frame &newFrame)
 {
-	flags.set ("first_frame");
+	if (!flags["first_frame"]) {
+		flags.set ("first_frame");
+		worldFrame = newFrame;
+	}
 
 	odomFrame = newFrame;
+}
+
+Frame Napvig::FramesTracker::current() const {
+	return odomFrame;
 }
 
 bool Napvig::FramesTracker::isReady () const {
 	return flags.isReady ();
 }
 
-Napvig::State Napvig::FramesTracker::toMeasuresFrame (const State &stateOdom) {
+Frame Napvig::FramesTracker::world() const {
+	return worldFrame;
+}
+
+Napvig::State Napvig::FramesTracker::toMeasuresFrame (const State &stateOdom) const {
 	Frame transformation = odomFrame.inv () * measuresFrame;
 
 	return State{transformation * stateOdom.position,
@@ -170,6 +181,7 @@ std::shared_ptr<NapvigDebug> Napvig::getDebug() {
 }
 
 bool Napvig::isReady () const {
+	cout << landscape.isReady () << " " <<framesTracker.isReady () << endl;
 	return landscape.isReady () && framesTracker.isReady ();
 }
 

@@ -11,7 +11,7 @@ void NapvigNodeDebugger::initParams(XmlRpcValue &_params)
 	params.mapTestRangeMin = paramDouble (_params["landscape_test"], "range_min");
 	params.mapTestRangeMax = paramDouble (_params["landscape_test"], "range_max");
 	params.mapTestRangeStep = paramDouble (_params["landscape_test"], "range_step");
-	params.drawWhat = paramEnum<TestDraw> (_params["landscape_test"],"draw", {"none","value","grad"});
+	params.drawWhat = paramEnum<TestDraw> (_params["landscape_test"],"draw", {"none","value","grad","landmarks"});
 	params.publishMeasures = paramBool (_params,"publish_measures");
 	params.publishHistory = paramBool (_params,"publish_history");
 }
@@ -108,6 +108,29 @@ void NapvigNodeDebugger::valuesFromValues (std_msgs::Float32MultiArray &valuesMs
 	valuesMsg = array.getMsg ();
 }
 
+void NapvigNodeDebugger::valuesFromLandmarks(std_msgs::Float32MultiArray &valuesMsg) const
+{
+	MultiArray32Manager array({testGrid.xySize,
+							  testGrid.xySize}, RANGE_DIM);
+
+	array.data ()[0] = params.mapTestRangeMin;
+	array.data ()[1] = params.mapTestRangeMax;
+	array.data ()[2] = params.mapTestRangeStep;
+
+	double taken;
+	//PROFILE_N (taken,[&]{
+	debug->explorativeCost->convertLandmarks ();
+	//}, debug->explorativeCost->landmarks->size ());
+	for (int i = 0; i < testGrid.points.size (0); i++) {
+		Tensor currPoint = testGrid.points.index ({i, None});
+
+		array.data ()[RANGE_DIM + i] = debug->explorativeCost->pointCost (currPoint);
+	}
+
+	valuesMsg = array.getMsg ();
+}
+
+
 void NapvigNodeDebugger::valuesFromGrad (std_msgs::Float32MultiArray &valuesMsg) const
 {
 	MultiArray32Manager array({testGrid.xySize,
@@ -129,7 +152,6 @@ void NapvigNodeDebugger::valuesFromGrad (std_msgs::Float32MultiArray &valuesMsg)
 
 	valuesMsg = array.getMsg ();
 }
-
 void NapvigNodeDebugger::buildValuesMsg (std_msgs::Float32MultiArray &valuesMsg) const
 {
 	switch (params.drawWhat) {
@@ -139,6 +161,8 @@ void NapvigNodeDebugger::buildValuesMsg (std_msgs::Float32MultiArray &valuesMsg)
 	case TEST_DRAW_GRAD:
 		valuesFromGrad (valuesMsg);
 		break;
+	case TEST_DRAW_LANDMARKS:
+		valuesFromLandmarks (valuesMsg);
 	default:
 		return;
 	}
@@ -157,6 +181,8 @@ bool NapvigNodeDebugger::checkPublishDebug() const {
 }
 
 bool NapvigNodeDebugger::checkPublishValues() const {
+	if (params.drawWhat == TEST_DRAW_LANDMARKS)
+		return debug->explorativeCost != nullptr;
 	return (debug->landscape->isReady () && (params.drawWhat == TEST_DRAW_VALUE ||
 											 params.drawWhat == TEST_DRAW_GRAD));
 }

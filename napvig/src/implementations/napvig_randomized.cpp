@@ -33,7 +33,7 @@ void RandomizePolicy::init ()
 Tensor RandomizePolicy::randomize (const torch::Tensor &search)
 {
 	double thetaRandom = torch::normal (0.0, params().randomizeVariance, {1}).item ().toDouble ();
-	Rotation randomizedRotation = Rotation::fromAxisAngle (Rotation::axis2d (), tensor ({thetaRandom}, kDouble));
+	Rotation randomizedRotation = Rotation::fromAxisAngle (thetaRandom);
 
 	return randomizedRotation * search;
 }

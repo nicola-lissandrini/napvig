@@ -3,7 +3,7 @@
 
 #include "../napvig.h"
 
-// Workaround for NapvigPredictive::Params forward declaration
+// template: Workaround for NapvigPredictive::Params forward declaration
 template<class ParamsAbstract>
 class PolicyAbstract
 {

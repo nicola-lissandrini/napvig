@@ -93,6 +93,11 @@ void NapvigHandler::GetNapvigParams::addX()
 	params<NapvigX>()->stepGainSaturationDistance = paramDouble (xmlParams["predictive"]["x"],"step_gain_saturation_distance");
 	params<NapvigX>()->angleSearch = paramRange (xmlParams["predictive"]["x"],"angle_search");
 	params<NapvigX>()->targetReachedThreshold = paramDouble (xmlParams["predictive"]["x"],"target_reached_threshold");
+	params<NapvigX>()->landmarks.maxQueue = paramInt (xmlParams["predictive"]["x"]["landmarks"],"max_queue");
+	params<NapvigX>()->landmarks.minimumDistanceCreation = paramDouble (xmlParams["predictive"]["x"]["landmarks"],"minimum_distance_creation");
+	params<NapvigX>()->landmarks.maximumTimeCreation = paramDouble (xmlParams["predictive"]["x"]["landmarks"],"maximum_time_creation");
+	params<NapvigX>()->landmarks.forgettingFactor = paramDouble (xmlParams["predictive"]["x"]["landmarks"],"forgetting_factor");
+	params<NapvigX>()->landmarks.radius = paramDouble (xmlParams["predictive"]["x"]["landmarks"],"radius");
 }
 
 NapvigHandler::GetNapvigParams::GetNapvigParams (XmlRpcValue &_xmlParams):
@@ -178,16 +183,14 @@ void NapvigHandler::dispatchCommand ()
 boost::optional<torch::Tensor> NapvigHandler::getCommand ()
 {
 	boost::optional<torch::Tensor> command;
+
 	auto trajectory = napvig->computeTrajectory ();
 
 	if (trajectory) {
 		// Get first trajectory position sample
 		// (n. 0 is the initial state)
 		command = trajectory->at (1).position;
-		ROS_ERROR ("C'e` una traaaajjjjjj");
 	}
-	else
-		cout << "No traj" << endl;
 
 	return command;
 }

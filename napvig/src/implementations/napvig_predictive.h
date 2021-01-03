@@ -46,15 +46,5 @@ public:
 	virtual Termination terminationCondition (const Napvig::Trajectory &trajectory);
 };
 
-/***************
- * Follow napvig core directions until collision or max window reached
- * ************/
-
-class StartDrivenPolicy : public SearchStraightPolicy, public CollisionTerminatedPolicy
-{
-public:
-	StartDrivenPolicy (const std::shared_ptr<const Landscape> &_landscape,
-					   const std::shared_ptr<const NapvigPredictive::Params> &_params);
-};
 
 #endif // NAPVIG_PREDICTIVE_H

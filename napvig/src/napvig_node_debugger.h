@@ -12,7 +12,7 @@ enum TestDraw {
 	TEST_DRAW_NONE = 0,
 	TEST_DRAW_VALUE,
 	TEST_DRAW_GRAD,
-	TEST_DRAW_MINIMAL
+	TEST_DRAW_LANDMARKS
 };
 
 class NapvigNodeDebugger
@@ -38,6 +38,7 @@ class NapvigNodeDebugger
 	void initParams (XmlRpc::XmlRpcValue &_params);
 	void valuesFromValues (std_msgs::Float32MultiArray &valuesMsg) const;
 	void valuesFromGrad (std_msgs::Float32MultiArray &valuesMsg) const;
+	void valuesFromLandmarks (std_msgs::Float32MultiArray &valuesMsg) const;
 
 public:
 	NapvigNodeDebugger (const std::shared_ptr<NapvigDebug> &_debug, XmlRpc::XmlRpcValue &_params);

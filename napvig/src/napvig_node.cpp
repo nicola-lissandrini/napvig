@@ -18,6 +18,7 @@ Tensor pointMsgToTorch (const geometry_msgs::Point &vectorMsg) {
 						   vectorMsg.y,
 						   vectorMsg.z}, torch::kDouble);
 }
+
 Frame poseMsgToFrame (const geometry_msgs::Pose &poseMsg) {
 	torch::Tensor quaternion = quaternionMsgToTorch (poseMsg.orientation);
 	torch::Tensor position = pointMsgToTorch (poseMsg.position).slice (0,0,2);

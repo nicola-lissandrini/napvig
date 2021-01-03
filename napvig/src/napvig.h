@@ -88,21 +88,22 @@ protected:
 
 	virtual boost::optional<Trajectory> trajectoryAlgorithm (const State &initialState) = 0;
 
-private:
+public:
 	// Track openloop odometry frame update
 	class FramesTracker {
 		ReadyFlags<std::string> flags;
-		Frame odomFrame, measuresFrame;
+		Frame odomFrame, measuresFrame, worldFrame;
 
 	public:
 		FramesTracker ();
 		void resetFrame ();
 		void updateFrame (const Frame &newFrame);
 		bool isReady () const;
-		State toMeasuresFrame (const State &stateOdom);
+		Frame world () const;
+		Frame current () const;
+		State toMeasuresFrame (const State &stateOdom) const;
 	} framesTracker;
 
-public:
 	Napvig (AlgorithmType _type,
 			const std::shared_ptr<Landscape::Params> &landscapeParams,
 			const std::shared_ptr<Params> &napvigParams);
@@ -119,9 +120,12 @@ public:
 	torch::Tensor getZero () const;
 };
 
+class ExplorativeCost;
+
 struct NapvigDebug
 {
 	const std::shared_ptr<Landscape> landscape;
+	std::shared_ptr<ExplorativeCost> explorativeCost;
 	std::vector<float> values;
 	torch::Tensor debugTensor;
 

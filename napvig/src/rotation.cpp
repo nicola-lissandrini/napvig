@@ -32,7 +32,7 @@ Rotation::Rotation (const Tensor &tensorQuaternion)
 			tensorQuaternion[2].item().toDouble ());
 }
 
-Rotation Rotation::inv() {
+Rotation Rotation::inv() const {
 	return Rotation (quaternion.inverse ());
 }
 
@@ -50,21 +50,28 @@ Tensor eigenVectorToTorch (const VectorXd &eigenVector) {
 	return torch::from_blob ((void *)eigenVector.data (),{(int)eigenVector.size ()},kDouble).clone ();
 }
 
-Rotation Rotation::fromAxisAngle (const Tensor &axis, const Tensor &angle) {
+Rotation Rotation::fromAxisAngle (const Tensor &axis, double angle) {
 	return Rotation (Quaterniond (
-				cos(angle.item().toDouble ()/2),
-				sin(angle.item().toDouble ()/2) * axis[0].item().toDouble (),
-			sin(angle.item().toDouble ()/2) * axis[1].item().toDouble (),
-			sin(angle.item().toDouble ()/2) * axis[2].item().toDouble ()));
+				cos(angle/2),
+				sin(angle/2) * axis[0].item().toDouble (),
+			sin(angle/2) * axis[1].item().toDouble (),
+			sin(angle/2) * axis[2].item().toDouble ()));
 }
 
-Tensor Rotation::operator *(const Tensor &vector) {
+Rotation Rotation::fromAxisAngle (double angle) {
+	return Rotation (Quaterniond (
+				cos(angle/2), 0, 0, sin(angle/2)));
+}
+
+Tensor Rotation::operator *(const Tensor &vector) const {
 	Vector3d vector3d;
 
 	// Preprocess 2d vectors
 	switch (vector.size(0)) {
 	case DIM_2D:
-		vector3d = torchVectorToEigen (torch::cat ({vector, torch::tensor ({0.0},kDouble)}));
+		vector3d[0] = vector[0].item().toDouble ();
+		vector3d[1] = vector[1].item().toDouble ();
+		vector3d[2] = 0.0;
 		break;
 	case DIM_3D:
 		vector3d = torchVectorToEigen (vector);
@@ -77,15 +84,17 @@ Tensor Rotation::operator *(const Tensor &vector) {
 	// Rotate 3d vector
 	Vector3d rotated = quaternion * vector3d;
 
-	Tensor torchRotated = eigenVectorToTorch (rotated);
+	Tensor torchRotated = vector.clone ();
 
-	if (vector.size(0) == DIM_2D)
-		torchRotated = torchRotated.slice (0,0,2);//.index ({Slice(0,2)});
+	torchRotated[0] = rotated[0];
+	torchRotated[1] = rotated[1];
+	if (vector.size(0) == DIM_3D)
+		torchRotated[2] = rotated[2];
 
 	return torchRotated;
 }
 
-Rotation Rotation::operator *(const Rotation &other) {
+Rotation Rotation::operator *(const Rotation &other) const {
 	return Rotation (quaternion * other.quaternion);
 }
 

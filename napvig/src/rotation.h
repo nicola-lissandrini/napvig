@@ -19,25 +19,23 @@ class Rotation
 	bool checkValid(const torch::Tensor &quaternionTensor);
 
 	Rotation (const Eigen::Quaterniond &otherQuaternion);
+
 public:
 	Rotation ();
-	Rotation (const Rotation &other) {
-		quaternion = other.quaternion;
-	}
+	Rotation (const Rotation &other) = default;
 	// Tensor with order [x, y, z, w (real)], ROS convention
 	Rotation (const torch::Tensor &tensorQuaternion);
 
-	static Rotation fromAxisAngle (const torch::Tensor &axis, const torch::Tensor &angle);
+	static Rotation fromAxisAngle (const torch::Tensor &axis, double angle);
+	// Implicit 2d rotation around z
+	static Rotation fromAxisAngle (double angle);
 
-	Rotation operator * (const Rotation &other);
-	torch::Tensor operator * (const torch::Tensor &vector);
+	Rotation operator * (const Rotation &other) const;
+	torch::Tensor operator * (const torch::Tensor &vector) const;
 	
-	Rotation inv ();
+	Rotation inv () const;
 
 	friend std::ostream &operator<< (std::ostream &os, const Rotation &dt);
-	static torch::Tensor axis2d () {
-		return torch::tensor({0,0,1},torch::kDouble);
-	}
 };
 
 struct Frame
@@ -54,19 +52,19 @@ struct Frame
 		position = otherPosition;
 	}
 
-	Frame clone () {
+	Frame clone () const {
 		return Frame(orientation, position.clone ());
 	}
 
-	Frame inv () {
+	Frame inv () const {
 		return Frame (orientation.inv (), -(orientation.inv () * position));
 	}
 
-	torch::Tensor operator * (const torch::Tensor &vector) {
+	torch::Tensor operator * (const torch::Tensor &vector) const {
 		return orientation * vector + position;
 	}
 
-	Frame operator * (const Frame &second) {
+	const Frame operator * (const Frame &second) const {
 		return Frame (this->orientation * second.orientation,
 					  this->orientation * second.position + this->position);
 	}

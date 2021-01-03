@@ -18,7 +18,7 @@ history_topic = "/napvig/debug/search_history"
 target_body_topic = "/target_body"
 grad = False
 save_replay = False
-minimal = True
+minimal = False
 hist = True
 
 def handle_close (fig):

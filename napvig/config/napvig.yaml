@@ -6,7 +6,7 @@ napvig:
   landscape:
     measure_radius: 0.3
     smooth_radius: 0.05
-    precision: 500
+    precision: 200
     dimensions: 2
     min_distance: 0.15
   napvig:
@@ -22,16 +22,22 @@ napvig:
         max_trials: 5
       x:
         step_gain_saturation_distance: 1
-        target_reached_threshold: 0.05
+        target_reached_threshold: 0.2
+        landmarks:
+          max_queue: 100
+          minimum_distance_creation: 0.2
+          maximum_time_creation: 10
+          forgetting_factor: 0.05
+          radius: 0.05
         angle_search:
           min: rad(-pi)
           max: rad(pi)
           step: rad(pi/4)
   debug:
     landscape_test:
-      range_min: -0.8
-      range_max: 0.8
-      range_step: 0.04
-      draw: none   # {none, value, grad}
+      range_min: -2
+      range_max: 2
+      range_step: 0.1
+      draw: landmarks   # {none, value, grad, landmarks}
     publish_measures: true
     publish_history: true

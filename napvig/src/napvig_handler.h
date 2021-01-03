@@ -4,7 +4,7 @@
 #include "napvig.h"
 #include "implementations/napvig_legacy.h"
 #include "implementations/napvig_randomized.h"
-#include "implementations/napvig_x.h"
+#include "implementations/napvig_x/napvig_x.h"
 #include <xmlrpcpp/XmlRpc.h>
 
 class Measures

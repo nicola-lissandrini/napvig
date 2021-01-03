@@ -94,9 +94,4 @@ Policy::Termination CollisionTerminatedPolicy::terminationCondition (const Napvi
 	return PREDICTION_TERMINATION_NONE;
 }
 
-StartDrivenPolicy::StartDrivenPolicy(const std::shared_ptr<const Landscape> &_landscape,
-									 const std::shared_ptr<const NapvigPredictive::Params> &_params):
-	Policy(_landscape, _params)
-{}
-
 
