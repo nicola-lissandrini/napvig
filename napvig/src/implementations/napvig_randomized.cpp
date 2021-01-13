@@ -3,8 +3,8 @@
 using namespace std;
 using namespace torch;
 
-NapvigRandomized::NapvigRandomized (const shared_ptr<Landscape::Params> &_landscapeParams,
-									const shared_ptr<NapvigRandomized::Params> &_params):
+NapvigRandomized::NapvigRandomized (const Landscape::Params::Ptr &_landscapeParams,
+									const NapvigRandomized::Params::Ptr &_params):
 	NapvigPredictive(NAPVIG_RANDOMIZED,
 					 _landscapeParams,
 					 _params)
@@ -16,8 +16,8 @@ boost::optional<Napvig::Trajectory> NapvigRandomized::trajectoryAlgorithm (const
 	return followPolicy (initialState, randomizePolicy);
 }
 
-RandomizePolicy::RandomizePolicy (const std::shared_ptr<Landscape> _landscape,
-								  const std::shared_ptr<NapvigRandomized::Params> &_params):
+RandomizePolicy::RandomizePolicy (const Landscape::Ptr _landscape,
+								  const NapvigRandomized::Params::Ptr &_params):
 	Policy(_landscape, _params),
 	first(false)
 {
@@ -57,15 +57,13 @@ bool RandomizePolicy::processTrajectory (const Napvig::Trajectory &trajectory, T
 	bool trialsExceeded = trials >= params().maxTrials;
 
 	if (termination == PREDICTION_TERMINATION_MAX_STEP && !trialsExceeded) {
-		finalTrajectory = trajectory;
-		index = trials;
+		finalTrajectoryIndexed = {trajectory, trials};
 
 		return false;
 	}
 
 	if (trialsExceeded) {
-		finalTrajectory = boost::none;
-		index = -1;
+		finalTrajectoryIndexed = {boost::none, -1};
 
 		return false;
 	}

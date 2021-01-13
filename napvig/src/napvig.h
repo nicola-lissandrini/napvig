@@ -30,7 +30,27 @@ public:
 		}
 	};
 
-	using Trajectory = std::vector<State>;
+	class Trajectory
+	{
+		std::vector<State> states;
+
+	public:
+		Trajectory (const std::vector<State> &_states):
+			states(_states)
+		{}
+		Trajectory (const Trajectory &_other) = default;
+
+		std::vector<State>::iterator begin ();
+		std::vector<State>::iterator end ();
+		State &operator[] (int i) {
+			return states[i];
+		}
+		State operator[] (int i) const {
+			return states[i];
+		}
+
+		DEF_SHARED(Trajectory)
+	};
 
 	enum AlgorithmType {
 		NAPVIG_LEGACY,			// ICRA 2021
@@ -50,6 +70,7 @@ public:
 
 		// Allow dynamic cast
 		virtual ~Params() = default;
+		DEF_SHARED(Params)
 	};
 
 protected:
@@ -102,6 +123,9 @@ public:
 		Frame world () const;
 		Frame current () const;
 		State toMeasuresFrame (const State &stateOdom) const;
+
+
+		DEF_SHARED(FramesTracker)
 	} framesTracker;
 
 	Napvig (AlgorithmType _type,
@@ -118,27 +142,36 @@ public:
 	bool isReady () const;
 	AlgorithmType getType () const;
 	torch::Tensor getZero () const;
+
+	DEF_SHARED(Napvig)
 };
 
 class ExplorativeCost;
 
 struct NapvigDebug
 {
-	const std::shared_ptr<Landscape> landscape;
-	std::shared_ptr<ExplorativeCost> explorativeCost;
+	const std::shared_ptr<Landscape> landscapePtr;
+	const std::shared_ptr<Napvig::FramesTracker> framesTrackerPtr;
+	std::shared_ptr<ExplorativeCost> explorativeCostPtr;
 	std::vector<float> values;
 	torch::Tensor debugTensor;
 
 	struct SearchHistory {
-		std::vector<torch::Tensor> triedPaths;
-		std::vector<torch::Tensor> initialSearches;
+		struct PathTrial {
+			torch::Tensor path;
+			torch::Tensor initialSearch;
+			double costValue;
+		};
+		std::vector<PathTrial> trials;
 		int chosen;
 
 		void reset ();
-		void add (const Napvig::Trajectory &path);
+		void add (const Napvig::Trajectory &path, boost::optional<double> costValue = boost::none);
 	} history;
 
-	NapvigDebug (const std::shared_ptr<Landscape> &_landscape);
+	NapvigDebug (const std::shared_ptr<Landscape> &_landscape, const std::shared_ptr<Napvig::FramesTracker> &_framesTrackerPtr);
+
+	DEF_SHARED(NapvigDebug)
 };
 
 

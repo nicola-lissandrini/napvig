@@ -6,6 +6,7 @@
 #include <ATen/TensorOperators.h>
 #include <ATen/Layout.h>
 #include <chrono>
+#include "common.h"
 
 #include "rotation.h"
 
@@ -24,6 +25,8 @@ public:
 	torch::Tensor getWorldPosition () const;
 	torch::Tensor getConvertedPosition () const;
 	torch::Tensor getInFrame (const Frame &frame) const;
+
+	DEF_SHARED(Landmark)
 };
 
 using LandmarksQueue = std::deque<Landmark>;
@@ -44,6 +47,7 @@ public:
 	LandmarksQueue::iterator begin ();
 	LandmarksQueue::iterator end ();
 
+	DEF_SHARED(LandmarksBatch)
 };
 
 #endif // LANDMARKS_H

@@ -11,6 +11,8 @@ class Measures
 {
 public:
 	virtual torch::Tensor get () = 0;
+
+	DEF_SHARED(Measures)
 };
 
 class LidarMeasures : public Measures
@@ -22,9 +24,11 @@ public:
 	LidarMeasures (const std::vector<float> &_ranges,
 				   double _angleMin, double _angleIncrement);
 	torch::Tensor get ();
+
+	DEF_SHARED(LidarMeasures)
 };
 
-typedef std::function<void (const torch::Tensor &)> CommandPublisher;
+using CommandPublisher = std::function<void (const torch::Tensor &)>;
 
 class NapvigHandler
 {
@@ -83,6 +87,8 @@ public:
 	void updateTarget (const Frame &targetFrame);
 	Napvig::AlgorithmType getType () const;
 	std::shared_ptr<NapvigDebug> getDebug();
+
+	DEF_SHARED(NapvigHandler)
 };
 
 #endif // NAPVIG_HANDLER_H

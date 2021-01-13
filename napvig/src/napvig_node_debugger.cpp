@@ -14,6 +14,7 @@ void NapvigNodeDebugger::initParams(XmlRpcValue &_params)
 	params.drawWhat = paramEnum<TestDraw> (_params["landscape_test"],"draw", {"none","value","grad","landmarks"});
 	params.publishMeasures = paramBool (_params,"publish_measures");
 	params.publishHistory = paramBool (_params,"publish_history");
+	params.worldFrameView = paramBool (_params,"world_frame_view");
 }
 
 void NapvigNodeDebugger::initTestGrid()
@@ -38,9 +39,20 @@ NapvigNodeDebugger::NapvigNodeDebugger (const std::shared_ptr<NapvigDebug> &_deb
 	initTestGrid ();
 }
 
+void NapvigNodeDebugger::toWorldFrame (torch::Tensor &measures) const
+{
+	const Frame current = debug->framesTrackerPtr->current();
+	for (int i = 0; i < measures.size (0); i++)
+		measures[i] = current * measures[i];
+}
+
 void NapvigNodeDebugger::buildMeasuresMsg (const std::shared_ptr<Measures> &measures, std_msgs::Float32MultiArray &measuresMsg) const
 {
 	torch::Tensor measuresTensor = measures->get ().to (torch::kFloat);
+
+	if (params.worldFrameView)
+		toWorldFrame (measuresTensor);
+
 	MultiArray32Manager array({measuresTensor.size(0),
 							   measuresTensor.size(1)});
 
@@ -53,26 +65,21 @@ void NapvigNodeDebugger::buildMeasuresMsg (const std::shared_ptr<Measures> &meas
 
 void NapvigNodeDebugger::buildHistoryMsg (napvig::SearchHistory &searchHistoryMsg) const
 {
-	for (Tensor currPath : debug->history.triedPaths) {
+	for (const auto &pathTrial : debug->history.trials) {
 		nav_msgs::Path pathMsg;
-		const int currTrials = currPath.size (0);
+		const int currPathLength = pathTrial.path.size (0);
 
-		pathMsg.poses.resize (currTrials);
-		for (int i = 0; i < currTrials; i++) {
-			pathMsg.poses[i].pose.position.x = currPath[i][0].item ().toDouble ();
-			pathMsg.poses[i].pose.position.y = currPath[i][1].item ().toDouble ();
+		pathMsg.poses.resize (currPathLength);
+		for (int i = 0; i < currPathLength; i++) {
+			pathMsg.poses[i].pose.position.x = pathTrial.path[i][0].item ().toDouble ();
+			pathMsg.poses[i].pose.position.y = pathTrial.path[i][1].item ().toDouble ();
 		}
 
-		searchHistoryMsg.triedPaths.push_back (pathMsg);
-	}
-
-	for (Tensor currSearch : debug->history.initialSearches) {
 		geometry_msgs::Vector3 searchMsg;
+		searchMsg.x = pathTrial.initialSearch[0].item ().toDouble ();
+		searchMsg.y = pathTrial.initialSearch[1].item ().toDouble ();
 
-		searchMsg.x = currSearch[0].item ().toDouble ();
-		searchMsg.y = currSearch[1].item ().toDouble ();
-
-		searchHistoryMsg.initialSearch.push_back (searchMsg);
+		searchHistoryMsg.initialSearch.push_back (pathMsg);
 	}
 
 	searchHistoryMsg.chosen = debug->history.chosen;
@@ -102,7 +109,7 @@ void NapvigNodeDebugger::valuesFromValues (std_msgs::Float32MultiArray &valuesMs
 	for (int i = 0; i < testGrid.points.size (0); i++) {
 		Tensor currPoint = testGrid.points.index ({i, None});
 
-		array.data ()[RANGE_DIM + i] = debug->landscape->value (currPoint).item ().toDouble ();
+		array.data ()[RANGE_DIM + i] = debug->landscapePtr->value (currPoint).item ().toDouble ();
 	}
 
 	valuesMsg = array.getMsg ();
@@ -117,14 +124,12 @@ void NapvigNodeDebugger::valuesFromLandmarks(std_msgs::Float32MultiArray &values
 	array.data ()[1] = params.mapTestRangeMax;
 	array.data ()[2] = params.mapTestRangeStep;
 
-	double taken;
-	//PROFILE_N (taken,[&]{
-	debug->explorativeCost->convertLandmarks ();
-	//}, debug->explorativeCost->landmarks->size ());
+	debug->explorativeCostPtr->convertLandmarks ();
+
 	for (int i = 0; i < testGrid.points.size (0); i++) {
 		Tensor currPoint = testGrid.points.index ({i, None});
 
-		array.data ()[RANGE_DIM + i] = debug->explorativeCost->pointCost (currPoint);
+		array.data ()[RANGE_DIM + i] = debug->explorativeCostPtr->pointCost (currPoint, params.worldFrameView);
 	}
 
 	valuesMsg = array.getMsg ();
@@ -135,7 +140,7 @@ void NapvigNodeDebugger::valuesFromGrad (std_msgs::Float32MultiArray &valuesMsg)
 {
 	MultiArray32Manager array({testGrid.xySize,
 							   testGrid.xySize,
-							   debug->landscape->getDim ()},
+							   debug->landscapePtr->getDim ()},
 							  RANGE_DIM);
 
 	array.data ()[0] = params.mapTestRangeMin;
@@ -144,7 +149,7 @@ void NapvigNodeDebugger::valuesFromGrad (std_msgs::Float32MultiArray &valuesMsg)
 
 	for (int i = 0; i < testGrid.points.size (0); i++) {
 		Tensor currPoint = testGrid.points.index ({i, None});
-		Tensor grad = debug->landscape->grad (currPoint);
+		Tensor grad = debug->landscapePtr->grad (currPoint);
 
 		array.data()[RANGE_DIM + 2*i] = grad[0].item ().toDouble ();
 		array.data()[RANGE_DIM + 2*i + 1] = grad[1].item ().toDouble ();
@@ -173,7 +178,7 @@ bool NapvigNodeDebugger::checkPublishMeasures()  const {
 }
 
 bool NapvigNodeDebugger::checkPublishHistory()  const {
-	return (debug->landscape->isReady () && params.publishHistory);
+	return (debug->landscapePtr->isReady () && params.publishHistory);
 }
 
 bool NapvigNodeDebugger::checkPublishDebug() const {
@@ -182,8 +187,8 @@ bool NapvigNodeDebugger::checkPublishDebug() const {
 
 bool NapvigNodeDebugger::checkPublishValues() const {
 	if (params.drawWhat == TEST_DRAW_LANDMARKS)
-		return debug->explorativeCost != nullptr;
-	return (debug->landscape->isReady () && (params.drawWhat == TEST_DRAW_VALUE ||
+		return debug->explorativeCostPtr != nullptr;
+	return (debug->landscapePtr->isReady () && (params.drawWhat == TEST_DRAW_VALUE ||
 											 params.drawWhat == TEST_DRAW_GRAD));
 }
 

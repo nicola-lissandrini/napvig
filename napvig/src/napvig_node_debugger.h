@@ -23,10 +23,11 @@ class NapvigNodeDebugger
 		double mapTestRangeStep;
 		bool publishMeasures;
 		bool publishHistory;
+		bool worldFrameView;
 		TestDraw drawWhat;
 	} params;
 
-	std::shared_ptr<NapvigDebug> debug;
+	NapvigDebug::Ptr debug;
 
 	struct {
 		torch::Tensor points;
@@ -34,6 +35,7 @@ class NapvigNodeDebugger
 	} testGrid;
 
 	void initTestGrid ();
+	void toWorldFrame(torch::Tensor &measures) const;
 
 	void initParams (XmlRpc::XmlRpcValue &_params);
 	void valuesFromValues (std_msgs::Float32MultiArray &valuesMsg) const;
@@ -52,6 +54,8 @@ public:
 	bool checkPublishHistory () const;
 	bool checkPublishDebug ()  const;
 	bool checkPublishValues () const;
+
+	DEF_SHARED (NapvigNodeDebugger);
 };
 
 #endif // NAPVIG_NODE_DEBUGGER_H

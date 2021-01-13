@@ -28,15 +28,20 @@ NapvigX::NapvigX (const std::shared_ptr<Landscape::Params> &_landscapeParams,
 															  shared_ptr<LandmarksBatch>(&landmarks),
 															  shared_ptr<FramesTracker>(&framesTracker));
 
+	partiallyExplorativeCost = make_shared<PartiallyExplorativeCost> (_params,
+																	  shared_ptr<LandmarksBatch>(&landmarks),
+																	  shared_ptr<FramesTracker>(&framesTracker),
+																	  shared_ptr<Frame> (&targetFrame));
+
 	exploitativePolicy = make_shared<FullyExploitative> (shared_ptr<Landscape>(&landscape),
 														 _params,
 														 shared_ptr<Frame> (&targetFrame));
 
 	costOptimizationPolicy = make_shared<CostOptimizationPolicy> (shared_ptr<Landscape>(&landscape),
 																  _params,
-																  fullyExplorativeCost);
+																  partiallyExplorativeCost);
 
-	debug->explorativeCost = dynamic_pointer_cast<ExplorativeCost> (fullyExplorativeCost);
+	debug->explorativeCostPtr = dynamic_pointer_cast<ExplorativeCost> (partiallyExplorativeCost);
 }
 
 bool NapvigX::checkTargetUnreachable() const {
@@ -86,7 +91,7 @@ bool NapvigX::checkLandmarkNew(const Landmark &current, const Landmark &last)
 boost::optional<Napvig::Trajectory> NapvigX::trajectoryAlgorithm (const State &initialState)
 {
 	updateLandmarks ();
-
+/*
 	if (!targetSet ())
 		return boost::none;
 
@@ -101,12 +106,14 @@ boost::optional<Napvig::Trajectory> NapvigX::trajectoryAlgorithm (const State &i
 
 	// Fully exploitative
 	//return followPolicy (initialState, exploitativePolicy);
-
+*/
 	// Explorative
 	costOptimizationPolicy->setCost (fullyExplorativeCost);
 
 	return followPolicy (initialState, costOptimizationPolicy);
 }
+
+
 
 
 

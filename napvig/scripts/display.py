@@ -19,7 +19,7 @@ target_body_topic = "/target_body"
 grad = False
 save_replay = False
 minimal = False
-hist = True
+hist = False
 
 def handle_close (fig):
     quit ()
@@ -96,7 +96,7 @@ class DisplayNode:
         print ("len %d"%(len(self.history.triedPaths)))
         for curr_path in self.history.triedPaths:
             last_pos = Vector3 ()
-            #self.draw_turtle (last_pos, self.history.initialSearch[j])
+            self.draw_turtle (last_pos, self.history.initialSearch[j])
             for curr_pos in curr_path.poses:
                 if (j == self.history.chosen):
                     curr_color = "k"
@@ -156,8 +156,8 @@ class DisplayNode:
 
         plt.scatter (self.meas_np[:,0], self.meas_np[:,1],2.5)
         plt.grid ()
-        plt.gca().set_xlim (-1.5, 1.5)
-        plt.gca().set_ylim (-1.5, 1.5)
+        plt.gca().set_xlim (-2, 2)
+        plt.gca().set_ylim (-2, 2)
         plt.gca().set_aspect('equal', adjustable='box')
         print ("quaaa")
         plt.draw ()

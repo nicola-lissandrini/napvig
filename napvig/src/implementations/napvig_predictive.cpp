@@ -4,15 +4,15 @@ using namespace std;
 using namespace torch;
 
 NapvigPredictive::NapvigPredictive (AlgorithmType type,
-									const shared_ptr<Landscape::Params> &landscapeParams,
-									const shared_ptr<Napvig::Params> &napvigParams):
+									const Landscape::Params::Ptr &landscapeParams,
+									const Napvig::Params::Ptr &napvigParams):
 	Napvig (type,
 			landscapeParams,
 			napvigParams)
 {
 }
 
-pair<Napvig::Trajectory, Policy::Termination> NapvigPredictive::predictTrajectory (const State &initialState, const shared_ptr<Policy> &policy)
+pair<Napvig::Trajectory, Policy::Termination> NapvigPredictive::predictTrajectory (const State &initialState, const Policy::Ptr &policy)
 {
 	Napvig::Trajectory predicted;
 	Napvig::State current;
@@ -39,7 +39,7 @@ pair<Napvig::Trajectory, Policy::Termination> NapvigPredictive::predictTrajector
 	return {predicted, condition};
 }
 
-boost::optional<Napvig::Trajectory> NapvigPredictive::followPolicy (const State &initialState, const std::shared_ptr<Policy> &policy)
+boost::optional<Napvig::Trajectory> NapvigPredictive::followPolicy (const State &initialState, const Policy::Ptr &policy)
 {
 	Napvig::Trajectory trajectory;
 	Policy::Termination termination;

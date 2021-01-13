@@ -86,7 +86,6 @@ Napvig::State Napvig::Core::compute (const Napvig::State &q) const
 	// Get next bearing
 	next.search = nextSearch (q.position, next.position);
 
-	cout << "advance " << (next.position - q.position).norm ().item () << endl;
 	return next;
 }
 
@@ -152,7 +151,7 @@ Napvig::Napvig (Napvig::AlgorithmType _type,
 	paramsData(napvigParams),
 	core(*napvigParams, landscape)
 {
-	debug = make_shared<NapvigDebug> (shared_ptr<Landscape> (&landscape));
+	debug = make_shared<NapvigDebug> (shared_ptr<Landscape> (&landscape), shared_ptr<Napvig::FramesTracker> (&framesTracker));
 }
 
 boost::optional<Napvig::Trajectory> Napvig::computeTrajectory ()
@@ -181,7 +180,6 @@ std::shared_ptr<NapvigDebug> Napvig::getDebug() {
 }
 
 bool Napvig::isReady () const {
-	cout << landscape.isReady () << " " <<framesTracker.isReady () << endl;
 	return landscape.isReady () && framesTracker.isReady ();
 }
 
@@ -197,16 +195,17 @@ Tensor Napvig::getZero() const {
  * Debug info
  * ******/
 
-NapvigDebug::NapvigDebug(const std::shared_ptr<Landscape> &_landscape):
-	landscape(_landscape)
+NapvigDebug::NapvigDebug(const std::shared_ptr<Landscape> &_landscape, const std::shared_ptr<Napvig::FramesTracker> &_framesTrackerPtr):
+	landscapePtr(_landscape),
+	framesTrackerPtr(_framesTrackerPtr)
 {
 }
 
 void NapvigDebug::SearchHistory::reset() {
-	triedPaths.resize (0);
+	trials.resize (0);
 }
 
-void NapvigDebug::SearchHistory::add (const Napvig::Trajectory &path)
+void NapvigDebug::SearchHistory::add (const Napvig::Trajectory &path, boost::optional<double> costValue)
 {
 	Tensor pathTensor;
 	Tensor firstTensor = path[0].position.unsqueeze (0);
@@ -217,8 +216,7 @@ void NapvigDebug::SearchHistory::add (const Napvig::Trajectory &path)
 		pathTensor = torch::cat ({pathTensor, path[i].position.unsqueeze (0)}, 0);
 	}
 	
-	triedPaths.push_back (pathTensor);
-	initialSearches.push_back (firstTensor.squeeze ());
+	trials.push_back ({pathTensor, firstTensor.squeeze (), costValue.value_or (NAN)});
 }
 
 

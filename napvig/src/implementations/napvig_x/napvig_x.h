@@ -25,6 +25,8 @@ public:
 
 	void updateTarget (const Frame &_targetFrame);
 	bool targetSet () const;
+
+	DEF_SHARED(TargetTracker)
 };
 
 class NapvigX : public NapvigPredictive, public TargetTracker
@@ -40,7 +42,10 @@ public:
 			double forgettingFactor;
 			double radius;
 		} landmarks;
+		double targetCostWeight;
 		Range angleSearch;
+
+		DEF_SHARED(Params)
 	};
 
 private:
@@ -60,12 +65,15 @@ protected:
 	std::shared_ptr<CostOptimizationPolicy> costOptimizationPolicy;
 
 	std::shared_ptr<CostFunction> fullyExplorativeCost;
+	std::shared_ptr<CostFunction> partiallyExplorativeCost;
 
 	boost::optional<Napvig::Trajectory> trajectoryAlgorithm (const State &initialState);
 
 public:
 	NapvigX (const std::shared_ptr<Landscape::Params> &landscapeParams,
 			 const std::shared_ptr<NapvigX::Params> &params);
+
+	DEF_SHARED(NapvigX)
 };
 
 class FullyExploitative : public CollisionTerminatedPolicy
@@ -88,6 +96,8 @@ public:
 	std::pair<torch::Tensor,boost::optional<torch::Tensor>> getNextSearch (const Napvig::Trajectory &trajectory);
 	bool processTrajectory (const Napvig::Trajectory &trajectory, Termination termination);
 	Termination terminationCondition(const Napvig::Trajectory &trajectory);
+
+	DEF_SHARED(FullyExploitative)
 };
 
 class CostFunction
@@ -99,6 +109,8 @@ public:
 	CostFunction (const std::shared_ptr<NapvigPredictive::Params> &_paramsData);
 
 	virtual double get (const Napvig::Trajectory &trajectory) = 0;
+
+	DEF_SHARED(CostFunction)
 };
 
 // A cost based on landmarks
@@ -109,36 +121,56 @@ protected:
 		return *std::dynamic_pointer_cast<NapvigX::Params> (paramsData);
 	}
 
-protected:
 	std::shared_ptr<LandmarksBatch> landmarks;
 	std::shared_ptr<Napvig::FramesTracker> framesTracker;
 
-	virtual double pointCost (const torch::Tensor &point) = 0;
+	virtual double pointCost (const torch::Tensor &point, bool world = false) = 0;
 	void convertLandmarks ();
 
 	friend class NapvigNodeDebugger;
 
 public:
-	ExplorativeCost (const std::shared_ptr<NapvigPredictive::Params> &_params,
-					 const std::shared_ptr<LandmarksBatch> &_landmarks,
-					 const std::shared_ptr<Napvig::FramesTracker> &_framesTracker);
+	ExplorativeCost (const NapvigPredictive::Params::Ptr &_params,
+					 const LandmarksBatch::Ptr &_landmarks,
+					 const Napvig::FramesTracker::Ptr &_framesTracker);
 
 	double get (const Napvig::Trajectory &trajectory) final;
+
+	DEF_SHARED(ExplorativeCost)
 };
 
 class FullyExplorativeCost : public ExplorativeCost
 {
+protected:
 	double landmarkCostAt (const torch::Tensor &x,
 						   const torch::Tensor &landmarkPosition);
 
 public:
-	double pointCost (const torch::Tensor &point);
+	virtual double pointCost (const torch::Tensor &point, bool world = false) override;
 
 public:
 	FullyExplorativeCost (const std::shared_ptr<NapvigPredictive::Params> &_params,
 						  const std::shared_ptr<LandmarksBatch> &_landmarks,
 						  const std::shared_ptr<Napvig::FramesTracker> &_framesTracker);
 
+	DEF_SHARED(FullyExplorativeCost)
+};
+
+class PartiallyExplorativeCost : public FullyExplorativeCost
+{
+protected:
+	std::shared_ptr<Frame> targetFrame;
+	
+public:
+	double pointCost (const torch::Tensor &point, bool world = false) override;
+	
+public:
+	PartiallyExplorativeCost (const std::shared_ptr<NapvigPredictive::Params> &_params,
+							  const std::shared_ptr<LandmarksBatch> &_landmarks,
+							  const std::shared_ptr<Napvig::FramesTracker> &_framesTracker,
+							  const std::shared_ptr<Frame> &_targetFrame);
+
+	DEF_SHARED(PartiallyExplorativeCost)
 };
 
 // Calls sequence:
@@ -164,8 +196,10 @@ public:
 	// Receive previous and gives next initial direction
 	virtual torch::Tensor next () = 0;
 	virtual bool isLast () = 0;
-	void add (const std::shared_ptr<Napvig::Trajectory> &trajectory);
-	std::pair<std::shared_ptr<Napvig::Trajectory>, int> getOpt ();
+	void add (const std::shared_ptr<Napvig::Trajectory> &trajectory, bool infiniteCost);
+	std::pair<std::shared_ptr<Napvig::Trajectory>, int> getOptimal ();
+
+	DEF_SHARED(IterativeSampledOptimizer)
 };
 
 class SampledAngleOptimizer : public virtual IterativeSampledOptimizer
@@ -176,6 +210,8 @@ protected:
 	
 public:
 	void setInitialSearch (const torch::Tensor &_initialSearch);
+
+	DEF_SHARED(SampledAngleOptimizer)
 };
 
 class GridAngleOptimizer : public SampledAngleOptimizer
@@ -193,11 +229,12 @@ public:
 	
 	torch::Tensor next ();
 	bool isLast ();
+
+	DEF_SHARED(GridAngleOptimizer)
 };
 
 class CostOptimizationPolicy : public SearchStraightPolicy, public CollisionTerminatedPolicy
 {
-
 	std::shared_ptr<CostFunction> cost;
 	std::shared_ptr<GridAngleOptimizer> optimizer;
 
@@ -206,6 +243,7 @@ class CostOptimizationPolicy : public SearchStraightPolicy, public CollisionTerm
 	}
 
 	void init();
+
 public:
 	CostOptimizationPolicy (const std::shared_ptr<Landscape> &_landscape,
 							const std::shared_ptr<NapvigX::Params> &_params,
@@ -216,15 +254,8 @@ public:
 	std::pair<torch::Tensor,boost::optional<torch::Tensor>> getFirstSearch (const Napvig::State &initialState);
 	bool processTrajectory (const Napvig::Trajectory &trajectory, Termination termination);
 
+	DEF_SHARED(CostOptimizationPolicy)
 };
 
-
-/*
-class PartiallyExploitative : public StartDrivenPolicy, public CollisionTerminatedPolicy
-{
-public:
-	PartiallyExploitative ();
-};
-*/
 
 #endif // NAPVIG_X_H

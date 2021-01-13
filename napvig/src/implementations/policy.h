@@ -11,8 +11,7 @@ class PolicyAbstract
 protected:
 	std::shared_ptr<ParamsAbstract> paramsData;
 	const std::shared_ptr<Landscape> landscape;
-	boost::optional<Napvig::Trajectory> finalTrajectory;
-	int index;
+	std::pair<boost::optional<Napvig::Trajectory>, int> finalTrajectoryIndexed;
 
 	const ParamsAbstract &params() const {
 		return *std::dynamic_pointer_cast<const ParamsAbstract> (paramsData);
@@ -39,8 +38,10 @@ public:
 	virtual Termination terminationCondition (const Napvig::Trajectory &trajectory) = 0;
 	virtual bool processTrajectory (const Napvig::Trajectory &trajectory, Termination termination) = 0;
 	std::pair<boost::optional<Napvig::Trajectory>, int> getFinalTrajectory () {
-		return {finalTrajectory, index};
+		return finalTrajectoryIndexed;
 	}
+
+	DEF_SHARED(PolicyAbstract)
 };
 
 

@@ -23,6 +23,8 @@ public:
 		double minDistance;
 		int precision;
 		int dim;
+
+		DEF_SHARED(Params)
 	};
 
 private:
@@ -61,6 +63,8 @@ public:
 	~Landscape () {
 		ROS_ERROR ("LANDSCAPE DESTROYED");
 	}
+
+	DEF_SHARED(Landscape)
 };
 
 template<class T>

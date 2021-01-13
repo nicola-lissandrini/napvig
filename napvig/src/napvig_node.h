@@ -44,6 +44,8 @@ class NapvigNode : public SparcsNode
 
 public:
 	NapvigNode ();
+
+	DEF_SHARED(NapvigNode)
 };
 
 #endif // NAPVIG_NODE_H

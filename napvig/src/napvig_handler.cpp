@@ -91,13 +91,14 @@ void NapvigHandler::GetNapvigParams::addRandomized()
 void NapvigHandler::GetNapvigParams::addX()
 {
 	params<NapvigX>()->stepGainSaturationDistance = paramDouble (xmlParams["predictive"]["x"],"step_gain_saturation_distance");
-	params<NapvigX>()->angleSearch = paramRange (xmlParams["predictive"]["x"],"angle_search");
 	params<NapvigX>()->targetReachedThreshold = paramDouble (xmlParams["predictive"]["x"],"target_reached_threshold");
 	params<NapvigX>()->landmarks.maxQueue = paramInt (xmlParams["predictive"]["x"]["landmarks"],"max_queue");
 	params<NapvigX>()->landmarks.minimumDistanceCreation = paramDouble (xmlParams["predictive"]["x"]["landmarks"],"minimum_distance_creation");
 	params<NapvigX>()->landmarks.maximumTimeCreation = paramDouble (xmlParams["predictive"]["x"]["landmarks"],"maximum_time_creation");
 	params<NapvigX>()->landmarks.forgettingFactor = paramDouble (xmlParams["predictive"]["x"]["landmarks"],"forgetting_factor");
 	params<NapvigX>()->landmarks.radius = paramDouble (xmlParams["predictive"]["x"]["landmarks"],"radius");
+	params<NapvigX>()->targetCostWeight = paramDouble (xmlParams["predictive"]["x"],"target_cost_weight");
+	params<NapvigX>()->angleSearch = paramRange (xmlParams["predictive"]["x"],"angle_search");
 }
 
 NapvigHandler::GetNapvigParams::GetNapvigParams (XmlRpcValue &_xmlParams):
